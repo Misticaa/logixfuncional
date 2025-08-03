@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Logix Express - A logística inteligente</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        /* Order Confirmation Popup Styles */
+        .order-confirmation-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 3000;
+            backdrop-filter: blur(5px);
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .order-confirmation-container {
+            background: white;
+            border-radius: 20px;
+            max-width: 350px;
+            width: 85%;
+            padding: 30px;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: slideUp 0.4s ease;
+            position: relative;
+        }
+        
+        .order-confirmation-icon {
+            font-size: 3.5rem;
+            color: #27ae60;
+            margin-bottom: 20px;
+            animation: bounceIn 0.6s ease;
+        }
+        
+        .order-confirmation-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #2c3e50;
+            margin-bottom: 12px;
+            font-size: 1.6rem;
+        }
+        
+        .order-confirmation-message {
+            color: #666;
+            font-size: 1.1rem;
+            line-height: 1.6;
+            margin-bottom: 20px;
+            font-size: 1rem;
+        }
+        
+        .order-details {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 15px;
+            max-width: 200px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        .order-number {
+            font-weight: 700;
+            color: #1e4a6b;
+            font-size: 1rem;
+            margin-bottom: 2px;
+        }
+        
+        .order-number-label {
+            font-size: 0.8rem;
+            color: #666;
+            margin-bottom: 8px;
+        }
+        
+        .order-summary {
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 0.9rem;
+        }
+        
+        .track-order-popup-button {
+            background: linear-gradient(180deg, #1e4a6b, #2c5f8a, #1e4a6b) !important;
+            color: white !important;
+            border: none !important;
+            padding: 14px 30px !important;
+            font-size: 1rem !important;
+            font-weight: 700 !important;
+            border-radius: 8px !important;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(30, 74, 107, 0.5) !important;
+            animation: popupButtonPulse 1.5s ease-in-out infinite !important;
+            font-family: 'Orbitron', 'Roboto', sans-serif !important;
+            letter-spacing: 0.6px !important;
+            text-transform: uppercase !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            gap: 10px !important;
+        }
+        
+        .track-order-popup-button:hover {
+            background: linear-gradient(180deg, #152e3f, #1e4a6b, #152e3f) !important;
+            transform: translateY(-2px) !important;
+            box-shadow: 0 6px 20px rgba(30, 74, 107, 0.7) !important;
+            animation-play-state: running !important;
+        }
+        
+        @keyframes popupButtonPulse {
+            0% {
+                transform: scale(1) !important;
+                box-shadow: 0 4px 15px rgba(30, 74, 107, 0.5) !important;
+            }
+            50% {
+                transform: scale(1.08) !important;
+                box-shadow: 0 8px 30px rgba(30, 74, 107, 0.9) !important;
+            }
+            100% {
+                transform: scale(1) !important;
+                box-shadow: 0 4px 15px rgba(30, 74, 107, 0.5) !important;
+            }
+        }
+            border: none;
+            padding: 15px 30px;
+            font-size: 1rem;
+            font-weight: 700;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(30, 74, 107, 0.4);
+            animation: pulse 2s infinite;
+            font-family: 'Roboto', sans-serif;
+            letter-spacing: 0.5px;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .popup-close-button {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            color: #6c757d;
+            font-size: 1.4rem;
+            cursor: pointer;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+            z-index: 10;
+        }
+        
+        .popup-close-button:hover {
+            background: rgba(108, 117, 125, 0.1);
+            color: #495057;
+            transform: scale(1.1);
+        }
+        
+        .track-order-popup-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(30, 74, 107, 0.6);
+            animation-play-state: paused;
+        }
+        
+        @keyframes bounceIn {
+            0% {
+                opacity: 0;
+                transform: scale(0.3);
+            }
+            50% {
+                opacity: 1;
+                transform: scale(1.1);
+            }
+            70% {
+                transform: scale(0.9);
+            }
+            100% {
+                transform: scale(1);
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .order-confirmation-container {
+                padding: 25px;
+                width: 80%;
+            }
+            
+            .order-confirmation-title {
+                font-size: 1.5rem;
+            }
+            
+            .order-confirmation-message {
+                font-size: 1rem;
+            }
+        }
+    </style>
+  <script type="module" crossorigin src="/assets/main-C_wSihbd.js"></script>
+  <link rel="modulepreload" crossorigin href="/assets/modulepreload-polyfill-B5Qt9EMX.js">
+  <link rel="modulepreload" crossorigin href="/assets/navigation-BwbyOJod.js">
+  <link rel="stylesheet" crossorigin href="/assets/style-DuobgqBV.css">
+</head>
+<body>
+    <!-- Order Confirmation Popup -->
+    <div class="order-confirmation-overlay" id="orderConfirmationPopup">
+        <div class="order-confirmation-container">
+            <div class="order-confirmation-icon">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <button class="popup-close-button" id="closePopupButton">
+                <i class="fas fa-times"></i>
+            </button>
+            <h2 class="order-confirmation-title">Obrigado pela sua compra!</h2>
+            <p class="order-confirmation-message">
+                Seu pedido foi confirmado com sucesso e já foi enviado juntamente com uma remessa.<br>
+                <strong>Rastreie e verifique o andamento do pedido.</strong>
+            </p>
+            <div class="order-details">
+                <div class="order-number" id="orderNumberDisplay">CH12345678</div>
+                <div class="order-number-label">Número do Pedido</div>
+                <div class="order-summary" style="display: none;">Kit 12 Caixas Organizadoras</div>
+            </div>
+            <button class="track-order-popup-button" id="trackOrderPopupButton">
+                <i class="fas fa-truck"></i> Rastrear Pedido
+            </button>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="logo">
+                <img src="https://raw.githubusercontent.com/Misticaa/rastrear/refs/heads/main/jpg-removebg-preview.png" alt="Logix Express" class="logo-image">
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <div class="hero-text">
+                <button class="cta-button" type="button" id="trackingButton" data-action="track">Rastrear Pacote</button>
+            </div>
+        </div>
+        <div class="hero-image">
+            <img src="Shopee Express.png" alt="Caminhão Logix Express" id="heroImage">
+        </div>
+    </section>
+
+    <!-- About Section -->
+    <section class="about">
+        <div class="container">
+            <h2>Sobre nós</h2>
+            <p>A Logix Express é um serviço de logística integrada especializada em e-commerce, oferecendo soluções inovadoras e econômicas para suas entregas. Oferecemos soluções logísticas que ajudam você a expandir seu negócio e entregar de forma mais eficiente através de nossa plataforma de Logix Express com maior prazo de entrega, taxa de sucesso e uma alta performance que ajuda a alavancar sua loja através de soluções de entrega e de produtos mais rápidas e eficazes.</p>
+        </div>
+    </section>
+
+    <!-- Services Section -->
+    <section class="services">
+        <div class="container">
+            <div class="service-item">
+                <div class="service-icon orange">
+                    <i class="fas fa-boxes"></i>
+                </div>
+                <div class="service-content">
+                    <h3>Logística Logix</h3>
+                    <p>Soluções SUE Plus operações e logística do Logix Express.</p>
+                </div>
+            </div>
+
+            <div class="service-item">
+                <div class="service-icon orange">
+                    <i class="fas fa-mobile-alt"></i>
+                </div>
+                <div class="service-content">
+                    <h3>Aplicativos Exclusivos</h3>
+                    <p>Aplicativos exclusivos desenvolvidos para facilitar as operações.</p>
+                </div>
+            </div>
+
+            <div class="service-item">
+                <div class="service-icon orange">
+                    <i class="fas fa-truck"></i>
+                </div>
+                <div class="service-content">
+                    <h3>Motoristas Parceiros Logix</h3>
+                    <p>Rede de motoristas parceiros qualificados.</p>
+                </div>
+            </div>
+
+            <div class="service-item">
+                <div class="service-icon green">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div class="service-content">
+                    <h3>Qualidade na Entrega</h3>
+                    <p>Garantia de qualidade e pontualidade nas entregas.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- For Drivers Section -->
+    <section class="for-drivers">
+        <div class="container">
+            <h2>Para Motoristas & Agências</h2>
+            
+            <div class="driver-services">
+                <div class="driver-service">
+                    <div class="service-icon red">
+                        <i class="fas fa-shipping-fast"></i>
+                    </div>
+                    <div class="service-content">
+                        <h3>Aplicativo exclusivo de entregador</h3>
+                        <p>Nossa ferramenta para fazer a Dropz App funcionar melhor e com mais facilidade agilizando seu processo de entrega mais rápido e mais eficiente.</p>
+                    </div>
+                </div>
+
+                <div class="driver-service">
+                    <div class="service-icon red">
+                        <i class="fas fa-credit-card"></i>
+                    </div>
+                    <div class="service-content">
+                        <h3>Receba sem uma conta bancária</h3>
+                        <p>Facilite seus pagamentos oferecendo soluções para pagamentos e recebimentos através do nosso aplicativo de pagamentos.</p>
+                    </div>
+                </div>
+
+                <div class="driver-service">
+                    <div class="service-icon red">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <div class="service-content">
+                        <h3>Motoristas - Conte com o nosso suporte</h3>
+                        <p>No atendimento a motoristas exclusivo através de nossos canais de atendimento através de nossa central de relacionamento.</p>
+                    </div>
+                </div>
+
+                <div class="driver-service">
+                    <div class="service-icon red">
+                        <i class="fas fa-tachometer-alt"></i>
+                    </div>
+                    <div class="service-content">
+                        <h3>Cadastro rápido e fácil</h3>
+                        <p>Processo de cadastro facilitado garantindo praticidade e agilidade a todo suas etapas, assim você já pode começar a trabalhar!</p>
+                    </div>
+                </div>
+
+                <div class="driver-service">
+                    <div class="service-icon red">
+                        <i class="fas fa-money-bill-wave"></i>
+                    </div>
+                    <div class="service-content">
+                        <h3>Você está recebendo pacotes da Logix</h3>
+                        <p>Que compradores Logix fazem uso dos nossos componentes, e incluímos uma facilidade como nossas instruções de envio para integrar com a logística.</p>
+                    </div>
+                </div>
+
+                <div class="driver-service">
+                    <div class="service-icon red">
+                        <i class="fas fa-headset"></i>
+                    </div>
+                    <div class="service-content">
+                        <h3>Atendimento - Conte com o nosso suporte</h3>
+                        <p>Suporte especializado disponível através de nossos canais de atendimento. Estamos sempre prontos para ajudar em qualquer situação.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <div class="logo">
+                        <img src="https://raw.githubusercontent.com/Misticaa/rastrear/refs/heads/main/jpg-removebg-preview.png" alt="Logix Express" class="logo-image" data-logo>
+                    </div>
+                    <div class="company-info">
+                        <p><strong>Logix Express Brasil Ltda.</strong></p>
+                        <p class="footer-link">Motoristas</p>
+                        <p class="footer-link">Motoristas Parceiros - Entregas</p>
+                        <p class="footer-link">Aplicativo para Motoristas</p>
+                        <p class="footer-link">Tracking</p>
+                        <p class="footer-link">Agências Logix</p>
+                        <p class="footer-link">Seja nossa Agência Logix</p>
+                        <p class="footer-link">Central de Ajuda</p>
+                        <p class="footer-link">Fale conosco</p>
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>© 2023 Logix Express All rights reserved</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Generate random order number
+        function generateOrderNumber() {
+            const prefix = 'CH';
+            let digits = '';
+            for (let i = 0; i < 8; i++) {
+                digits += Math.floor(Math.random() * 10);
+            }
+            return prefix + digits;
+        }
+        
+        // Set random order number
+        document.addEventListener('DOMContentLoaded', function() {
+            const orderNumberDisplay = document.getElementById('orderNumberDisplay');
+            if (orderNumberDisplay) {
+                orderNumberDisplay.textContent = generateOrderNumber();
+            }
+            
+            // Setup track order button
+            const trackOrderButton = document.getElementById('trackOrderPopupButton');
+            if (trackOrderButton) {
+                trackOrderButton.addEventListener('click', function() {
+                    // Close popup
+                    const popup = document.getElementById('orderConfirmationPopup');
+                    if (popup) {
+                        popup.style.display = 'none';
+                    }
+                    
+                    // Focus on CPF input field
+                    const cpfInput = document.getElementById('cpfInput');
+                    if (cpfInput) {
+                        // Scroll to the tracking form
+                        const trackingForm = document.querySelector('.tracking-form');
+                        if (trackingForm) {
+                            trackingForm.scrollIntoView({ behavior: 'smooth' });
+                        }
+                        
+                        // Focus on the CPF input after scrolling
+                        setTimeout(() => {
+                            cpfInput.focus();
+                        }, 800);
+                    } else {
+                        // If on home page, redirect to tracking page
+                        window.location.href = '/rastreamento.html?focus=cpf';
+                    }
+                });
+            }
+            
+            // Setup close button
+            const closePopupButton = document.getElementById('closePopupButton');
+            if (closePopupButton) {
+                closePopupButton.addEventListener('click', function() {
+                    const popup = document.getElementById('orderConfirmationPopup');
+                    if (popup) {
+                        popup.style.display = 'none';
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>

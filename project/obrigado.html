@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Obrigado pela Compra - Shopee Express</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="logo">
+                <img src="https://deo.shopeemobile.com/shopee/shopee-spx-live-br/static/media/spx-express.f30236392.svg" alt="SPX Express" class="logo-image">
+            </div>
+        </div>
+    </header>
+
+    <!-- Thank You Hero Section -->
+    <section class="thank-you-hero">
+        <div class="container">
+            <div class="thank-you-content">
+                <div class="success-icon">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <h1>Obrigado pela sua compra!</h1>
+                <p>Seu pedido foi confirmado com sucesso. Você receberá todas as informações por e-mail.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Order Summary Section -->
+    <section class="order-summary">
+        <div class="container">
+            <div class="summary-card">
+                <div class="summary-header">
+                    <div class="summary-icon">
+                        <i class="fas fa-receipt"></i>
+                    </div>
+                    <div class="summary-info">
+                        <h2>Resumo do Pedido</h2>
+                        <p>Confira os detalhes da sua compra</p>
+                    </div>
+                </div>
+
+                <div class="summary-content">
+                    <!-- Dados do Cliente -->
+                    <div class="customer-section">
+                        <h3><i class="fas fa-user"></i> Dados do Cliente</h3>
+                        <div class="customer-grid">
+                            <div class="customer-item">
+                                <span class="label">Nome:</span>
+                                <span class="value" id="customerName">Carregando...</span>
+                            </div>
+                            <div class="customer-item">
+                                <span class="label">CPF:</span>
+                                <span class="value" id="customerCPF">Carregando...</span>
+                            </div>
+                            <div class="customer-item">
+                                <span class="label">E-mail:</span>
+                                <span class="value" id="customerEmail">Carregando...</span>
+                            </div>
+                            <div class="customer-item">
+                                <span class="label">Telefone:</span>
+                                <span class="value" id="customerPhone">Carregando...</span>
+                            </div>
+                            <div class="customer-item full-width">
+                                <span class="label">Endereço:</span>
+                                <span class="value" id="customerAddress">Carregando...</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Produtos -->
+                    <div class="products-section">
+                        <h3><i class="fas fa-box"></i> Produtos Comprados</h3>
+                        <div class="products-list" id="productsList">
+                            <!-- Produtos serão inseridos dinamicamente -->
+                        </div>
+                    </div>
+
+                    <!-- Resumo Financeiro -->
+                    <div class="financial-section">
+                        <h3><i class="fas fa-credit-card"></i> Resumo Financeiro</h3>
+                        <div class="financial-grid">
+                            <div class="financial-item">
+                                <span class="label">Valor Total:</span>
+                                <span class="value total-value" id="totalValue">R$ 0,00</span>
+                            </div>
+                            <div class="financial-item">
+                                <span class="label">Meio de Pagamento:</span>
+                                <span class="value" id="paymentMethod">PIX</span>
+                            </div>
+                            <div class="financial-item">
+                                <span class="label">Data da Compra:</span>
+                                <span class="value" id="purchaseDate">Carregando...</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Botão de Acompanhar -->
+                    <div class="tracking-section">
+                        <button class="track-order-button" id="trackOrderButton">
+                            <i class="fas fa-truck"></i>
+                            Acompanhar Entrega
+                        </button>
+                        <p class="tracking-info">
+                            Você pode acompanhar o status da sua entrega a qualquer momento
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <div class="logo">
+                        <img src="https://deo.shopeemobile.com/shopee/shopee-spx-live-br/static/media/spx-express.f30236392.svg" alt="SPX Express" class="logo-image">
+                    </div>
+                    <div class="company-info">
+                        <p><strong>Shopee Brasil Ltda.</strong></p>
+                        <p>Obrigado por escolher a Shopee Express!</p>
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>© 2023 SPX Express All rights reserved</p>
+            </div>
+        </div>
+    </footer>
+
+    <script type="module" src="src/pages/obrigado.js"></script>
+</body>
+</html>
