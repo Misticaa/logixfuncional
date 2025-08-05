@@ -210,20 +210,6 @@ export class TrackingSystem {
             liberationPaid: this.isLiberationPaid
         });
     }
-                
-                console.log('✅ Dados do usuário obtidos:', this.userData);
-                
-                this.closeLoadingNotification();
-                this.displayResults();
-            } else {
-                throw new Error('Dados não encontrados');
-            }
-        } catch (error) {
-            console.error('❌ Erro no rastreamento:', error);
-            this.closeLoadingNotification();
-            this.showError('Erro ao buscar dados. Tente novamente.');
-        }
-    }
 
     displayResults() {
         this.displayOrderDetails();
@@ -262,26 +248,24 @@ export class TrackingSystem {
         }
     }
 
-    generateTrackingData() {
-        const today = new Date();
-        const dates = this.generateRealisticDates(today, 11);
+    displayTrackingResults() {
+        const trackingResults = document.getElementById('trackingResults');
+        const customerNameStatus = document.getElementById('customerNameStatus');
+        const currentStatus = document.getElementById('currentStatus');
         
-        this.trackingData = {
-            currentStep: 11,
-            steps: [
-                { id: 1, date: dates[0], title: 'Seu pedido foi criado', description: 'Seu pedido foi criado', completed: true },
-                { id: 2, date: dates[1], title: 'Preparando para envio', description: 'O seu pedido está sendo preparado para envio', completed: true },
-                { id: 3, date: dates[2], title: 'Pedido enviado', description: '[China] O vendedor enviou seu pedido', completed: true, isChina: true },
-                { id: 4, date: dates[3], title: 'Centro de triagem', description: '[China] O pedido chegou ao centro de triagem de Shenzhen', completed: true, isChina: true },
-                { id: 5, date: dates[4], title: 'Centro logístico', description: '[China] Pedido saiu do centro logístico de Shenzhen', completed: true, isChina: true },
-                { id: 6, date: dates[5], title: 'Trânsito internacional', description: '[China] Coletado. O pedido está em trânsito internacional', completed: true, isChina: true },
-                { id: 7, date: dates[6], title: 'Liberado para exportação', description: '[China] O pedido foi liberado na alfândega de exportação', completed: true, isChina: true },
-                { id: 8, date: dates[7], title: 'Saiu da origem', description: 'Pedido saiu da origem: Shenzhen', completed: true },
-                { id: 9, date: dates[8], title: 'Chegou no Brasil', description: 'Pedido chegou no Brasil', completed: true },
-                { id: 10, date: dates[9], title: 'Centro de distribuição', description: 'Pedido em trânsito para CURITIBA/PR', completed: true },
-                { id: 11, date: dates[10], title: 'Alfândega de importação', description: 'Pedido chegou na alfândega de importação: CURITIBA/PR', completed: true, needsLiberation: true }
-            ]
-        };
+        if (trackingResults) {
+            trackingResults.style.display = 'block';
+        }
+        
+        if (customerNameStatus) {
+            customerNameStatus.textContent = this.userData.nome;
+        }
+        
+        if (currentStatus) {
+            currentStatus.textContent = 'Aguardando liberação aduaneira';
+        }
+        
+        this.renderTimeline();
     }
 
     generateRealisticDates(endDate, numSteps) {
@@ -338,26 +322,6 @@ export class TrackingSystem {
         
         newDate.setHours(targetTime.getHours(), targetTime.getMinutes(), 0, 0);
         return newDate;
-    }
-
-    displayTrackingResults() {
-        const trackingResults = document.getElementById('trackingResults');
-        const customerNameStatus = document.getElementById('customerNameStatus');
-        const currentStatus = document.getElementById('currentStatus');
-        
-        if (trackingResults) {
-            trackingResults.style.display = 'block';
-        }
-        
-        if (customerNameStatus) {
-            customerNameStatus.textContent = this.userData.nome;
-        }
-        
-        if (currentStatus) {
-            currentStatus.textContent = 'Aguardando liberação aduaneira';
-        }
-        
-        this.renderTimeline();
     }
 
     renderTimeline() {
