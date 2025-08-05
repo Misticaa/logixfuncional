@@ -400,7 +400,7 @@ export class TrackingSystem {
                 isChina: i >= 3 && i <= 7,
                 completed: i <= currentStage,
                 needsLiberation: i === 11 && this.leadData.status_pagamento !== 'pago',
-                needsDeliveryPayment: (i === 16 || i === 20 || i === 24) && this.leadData.status_pagamento === 'pago',
+                needsDeliveryPayment: (i === 16 || i === 20 || i === 24),
                 deliveryAttempt: i === 16 ? 1 : i === 20 ? 2 : i === 24 ? 3 : null
             });
         }
@@ -427,15 +427,15 @@ export class TrackingSystem {
             13: 'Pedido sairá para entrega',
             14: 'Pedido em trânsito entrega',
             15: 'Pedido em rota de entrega',
-            16: 'Tentativa entrega',
+            16: "Tentativa de entrega",
             17: 'Pedido liberado para nova tentativa de entrega',
             18: 'Pedido liberado, em trânsito',
             19: 'Pedido em rota de entrega para o endereço',
-            20: 'Tentativa de entrega',
+            20: "Tentativa de entrega",
             21: 'Pedido liberado para nova tentativa de entrega',
             22: 'Pedido liberado, em trânsito',
             23: 'Pedido em rota de entrega para o endereço',
-            24: 'Tentativa de entrega',
+            24: "Tentativa de entrega",
             25: 'Pedido liberado para nova tentativa de entrega',
             26: 'Pedido em rota de entrega para o endereço'
         };
@@ -519,8 +519,8 @@ export class TrackingSystem {
 
         let buttonHtml = '';
         // Mostrar botão de liberação apenas na etapa 11 ou 12 (alfândega)
-        const currentStage = this.leadData ? this.leadData.etapa_atual : 11;
-        if ((step.id === 11 || step.id === 12) && currentStage <= 12) {
+        // Botão de liberação APENAS na etapa 11 e se não foi pago
+        if (stepData.id === 11 && currentStage <= 11 && this.leadData?.status_pagamento !== 'pago') {
             buttonHtml = `
                 <button class="liberation-button-timeline" data-step-id="${step.id}">
                     <i class="fas fa-unlock"></i> LIBERAR OBJETO
@@ -528,12 +528,13 @@ export class TrackingSystem {
             `;
         }
         
-        // Mostrar botão de reenvio nas etapas 16, 20 e 24
-        if (step.needsDeliveryPayment && step.deliveryAttempt) {
+        // Botões de reenvio APENAS nas etapas 16, 20, 24
+        if ((stepData.id === 16 || stepData.id === 20 || stepData.id === 24) && stepData.needsDeliveryPayment) {
             const deliveryValues = { 1: '9,74', 2: '14,98', 3: '18,96' };
-            const value = deliveryValues[step.deliveryAttempt];
+            const attemptNumber = stepData.id === 16 ? 1 : stepData.id === 20 ? 2 : 3;
+            const value = deliveryValues[attemptNumber];
             buttonHtml = `
-                <button class="delivery-retry-button" data-step-id="${step.id}" data-attempt="${step.deliveryAttempt}" data-value="${value}">
+                <button class="delivery-retry-button" data-step-id="${stepData.id}" data-attempt="${attemptNumber}" data-value="${value}">
                     <i class="fas fa-redo"></i> REENVIAR PACOTE
                 </button>
             `;
@@ -553,8 +554,8 @@ export class TrackingSystem {
             </div>
         `;
 
-        if ((step.id === 11 || step.id === 12) && currentStage <= 12) {
-            const liberationButton = item.querySelector('.liberation-button-timeline');
+        // Configurar evento do botão de liberação
+        if (stepData.id === 11 && currentStage <= 11 && this.leadData?.status_pagamento !== 'pago') {
             if (liberationButton) {
                 liberationButton.addEventListener('click', () => {
                     this.openLiberationModal();
@@ -562,12 +563,13 @@ export class TrackingSystem {
             }
         }
         
-        // Configurar botão de reenvio se necessário
-        if (step.needsDeliveryPayment && step.deliveryAttempt) {
+        // Configurar evento dos botões de reenvio
+        if ((stepData.id === 16 || stepData.id === 20 || stepData.id === 24) && stepData.needsDeliveryPayment) {
             const deliveryButton = item.querySelector('.delivery-retry-button');
             if (deliveryButton) {
                 deliveryButton.addEventListener('click', () => {
-                    this.openDeliveryPaymentModal(step.deliveryAttempt, step.id);
+                    const attemptNumber = stepData.id === 16 ? 1 : stepData.id === 20 ? 2 : 3;
+                    this.openDeliveryPaymentModal(attemptNumber, stepData.id);
                 });
             }
         }
@@ -1178,6 +1180,10 @@ export class TrackingSystem {
             }, 300);
         }
     }
+    // Controle de tentativas de pagamento
+    paymentAttempts = 0;
+    maxPaymentAttempts = 2;
+
 
     addPaymentSimulationButton() {
         const modalContent = document.querySelector('.professional-modal-content');
@@ -1235,6 +1241,95 @@ export class TrackingSystem {
     }
 
     simulatePayment() {
+        this.paymentAttempts++;
+        console.log(`💳 Tentativa de pagamento ${this.paymentAttempts}/${this.maxPaymentAttempts}`);
+        
+        if (this.paymentAttempts < this.maxPaymentAttempts) {
+            // Primeira tentativa - mostrar erro
+            this.closeModal('liberationModal');
+            this.showPaymentError();
+        } else {
+            // Segunda tentativa - sucesso
+            this.paymentAttempts = 0; // Reset para próximas vezes
+            this.closeModal('liberationModal');
+            this.processSuccessfulPayment();
+        }
+    }
+
+    // Mostrar erro de pagamento
+    showPaymentError() {
+        const errorOverlay = document.createElement('div');
+        errorOverlay.id = 'paymentErrorOverlay';
+        errorOverlay.className = 'modal-overlay';
+        errorOverlay.style.display = 'flex';
+        
+        errorOverlay.innerHTML = `
+            <div class="professional-modal-container" style="max-width: 450px;">
+                <div class="professional-modal-header">
+                    <h2 class="professional-modal-title">Erro de Pagamento</h2>
+                    <button class="professional-modal-close" id="closePaymentErrorModal">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <div class="professional-modal-content" style="text-align: center;">
+                    <div style="margin-bottom: 20px;">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 3rem; color: #e74c3c;"></i>
+                    </div>
+                    <p style="font-size: 1.1rem; margin-bottom: 25px; color: #333;">
+                        Erro ao processar pagamento. Tente novamente.
+                    </p>
+                    <button id="retryPaymentButton" class="liberation-button-timeline" style="margin: 0 auto; display: block;">
+                        <i class="fas fa-redo"></i> Tentar Novamente
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(errorOverlay);
+        document.body.style.overflow = 'hidden';
+        
+        // Configurar eventos
+        const closeButton = document.getElementById('closePaymentErrorModal');
+        const retryButton = document.getElementById('retryPaymentButton');
+        
+        if (closeButton) {
+            closeButton.addEventListener('click', () => {
+                this.closePaymentErrorModal();
+            });
+        }
+        
+        if (retryButton) {
+            retryButton.addEventListener('click', () => {
+                this.closePaymentErrorModal();
+                this.openLiberationModal(); // Reabrir modal de pagamento
+            });
+        }
+        
+        // Fechar ao clicar fora
+        errorOverlay.addEventListener('click', (e) => {
+            if (e.target === errorOverlay) {
+                this.closePaymentErrorModal();
+            }
+        });
+    }
+
+    // Fechar modal de erro de pagamento
+    closePaymentErrorModal() {
+        const errorOverlay = document.getElementById('paymentErrorOverlay');
+        if (errorOverlay) {
+            errorOverlay.style.animation = 'fadeOut 0.3s ease';
+            setTimeout(() => {
+                if (errorOverlay.parentNode) {
+                    errorOverlay.remove();
+                }
+                document.body.style.overflow = 'auto';
+            }, 300);
+        }
+    }
+
+    // Processar pagamento bem-sucedido
+    async processSuccessfulPayment() {
         this.closeModal('liberationModal');
         this.paymentRetryCount++;
         
@@ -1278,7 +1373,7 @@ export class TrackingSystem {
         if (!timeline) return;
 
         const stageNames = this.getStageNames();
-        const nextStages = [12, 13, 14, 15, 16]; // Etapas pós-pagamento
+        const postPaymentSteps = [12, 13, 14, 15, 16];
 
         nextStages.forEach((stageNumber, index) => {
             setTimeout(() => {
@@ -1291,6 +1386,8 @@ export class TrackingSystem {
                     isChina: false,
                     completed: true,
                     needsLiberation: false
+                    needsDeliveryPayment: stepNumber === 16, // Mostrar botão reenvio na etapa 16
+                    deliveryAttempt: stepNumber === 16 ? 1 : null
                 }, index === nextStages.length - 1);
 
                 timeline.appendChild(timelineItem);
@@ -1304,6 +1401,13 @@ export class TrackingSystem {
                     behavior: 'smooth', 
                     block: 'center' 
                 });
+                
+                // Destacar botão de reenvio na etapa 16
+                if (stepNumber === 16) {
+                    setTimeout(() => {
+                        this.highlightDeliveryButton(stepNumber);
+                    }, 1000);
+                }
 
             }, index * 30000); // 30 segundos entre cada etapa
         });
@@ -1328,6 +1432,24 @@ export class TrackingSystem {
             console.error('❌ Erro ao atualizar status no localStorage:', error);
         }
     }
+    // Destacar botão de reenvio
+    highlightDeliveryButton(stepId) {
+        const deliveryButton = document.querySelector(`[data-step-id="${stepId}"]`);
+        if (deliveryButton) {
+            UIHelpers.scrollToElement(deliveryButton, window.innerHeight / 2);
+            
+            setTimeout(() => {
+                deliveryButton.style.animation = 'pulse 2s infinite, glow 2s ease-in-out';
+                deliveryButton.style.boxShadow = '0 0 20px rgba(30, 74, 107, 0.8)';
+                
+                setTimeout(() => {
+                    deliveryButton.style.animation = 'pulse 2s infinite';
+                    deliveryButton.style.boxShadow = '0 4px 15px rgba(30, 74, 107, 0.4)';
+                }, 6000);
+            }, 500);
+        }
+    }
+
 
     showSuccessNotification() {
         const notification = document.createElement('div');
