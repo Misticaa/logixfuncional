@@ -1,25 +1,25 @@
 /**
- * Sistema de rastreamento baseado APENAS em dados do banco
- * SEM API DE CPF - APENAS DADOS DO SUPABASE
+ * Sistema de rastreamento principal
  */
 import { DatabaseService } from '../services/database.js';
-import { UIHelpers } from '../utils/ui-helpers.js';
+import { DataService } from '../utils/data-service.js';
 import { CPFValidator } from '../utils/cpf-validator.js';
 import { ZentraPayService } from '../services/zentra-pay.js';
 
 export class TrackingSystem {
     constructor() {
         this.dbService = new DatabaseService();
+        this.dataService = new DataService();
+        this.zentraPayService = new ZentraPayService();
         this.currentCPF = null;
         this.trackingData = null;
-        this.leadData = null; // Dados do banco
-        this.zentraPayService = new ZentraPayService();
+        this.userData = null;
         this.isInitialized = false;
         this.pixData = null;
-        this.paymentErrorShown = false;
-        this.paymentRetryCount = 0;
+        this.paymentAttempts = 0; // Contador de tentativas de pagamento
+        this.maxPaymentAttempts = 2; // Máximo 2 tentativas
         
-        console.log('TrackingSystem inicializado - DADOS DO BANCO');
+        console.log('TrackingSystem inicializado');
         this.initWhenReady();
     }
 
@@ -36,16 +36,17 @@ export class TrackingSystem {
         setTimeout(() => this.init(), 1000);
     }
 
-    init() {
+    async init() {
         if (this.isInitialized) return;
         
-        console.log('Inicializando sistema de rastreamento baseado no banco...');
+        console.log('Inicializando sistema de rastreamento...');
         
         try {
             this.setupEventListeners();
             this.handleAutoFocus();
             this.clearOldData();
             this.validateZentraPaySetup();
+            
             this.isInitialized = true;
             console.log('Sistema de rastreamento inicializado com sucesso');
         } catch (error) {
@@ -67,6 +68,7 @@ export class TrackingSystem {
 
     setupEventListeners() {
         console.log('Configurando event listeners...');
+        
         this.setupFormSubmission();
         this.setupCPFInput();
         this.setupTrackButton();
@@ -74,6 +76,7 @@ export class TrackingSystem {
         this.setupCopyButtons();
         this.setupAccordion();
         this.setupKeyboardEvents();
+        
         console.log('Event listeners configurados');
     }
 
@@ -89,6 +92,7 @@ export class TrackingSystem {
             });
         }
 
+        // Fallback para todos os forms
         document.querySelectorAll('form').forEach((form, index) => {
             console.log(`Configurando form ${index}`);
             form.addEventListener('submit', (e) => {
@@ -109,11 +113,13 @@ export class TrackingSystem {
             this.configureTrackButton(trackButton);
         }
 
+        // Configurar por classe
         document.querySelectorAll('.track-button').forEach((button, index) => {
             console.log(`Configurando botão por classe ${index}`);
             this.configureTrackButton(button);
         });
 
+        // Configurar por texto
         document.querySelectorAll('button[type="submit"], button').forEach((button, index) => {
             if (button.textContent && button.textContent.toLowerCase().includes('rastrear')) {
                 console.log(`Configurando botão por texto ${index}: ${button.textContent}`);
@@ -121,6 +127,7 @@ export class TrackingSystem {
             }
         });
 
+        // Event delegation como fallback
         document.addEventListener('click', (e) => {
             const target = e.target;
             if (target && target.tagName === 'BUTTON' && 
@@ -134,6 +141,7 @@ export class TrackingSystem {
     }
 
     configureTrackButton(button) {
+        // Remover listeners existentes clonando o elemento
         const newButton = button.cloneNode(true);
         button.parentNode.replaceChild(newButton, button);
         
@@ -144,6 +152,7 @@ export class TrackingSystem {
             this.handleTrackingSubmit();
         });
 
+        // Garantir que seja clicável
         newButton.style.cursor = 'pointer';
         newButton.style.pointerEvents = 'auto';
         newButton.removeAttribute('disabled');
@@ -163,7 +172,7 @@ export class TrackingSystem {
         }
 
         console.log('Configurando campo CPF...');
-        
+
         cpfInput.addEventListener('input', (e) => {
             CPFValidator.applyCPFMask(e.target);
             this.validateCPFInput();
@@ -184,6 +193,7 @@ export class TrackingSystem {
             e.preventDefault();
             const pastedText = (e.clipboardData || window.clipboardData).getData('text');
             const cleanText = pastedText.replace(/[^\d]/g, '');
+            
             if (cleanText.length <= 11) {
                 cpfInput.value = cleanText;
                 CPFValidator.applyCPFMask(cpfInput);
@@ -200,16 +210,16 @@ export class TrackingSystem {
 
     preventNonNumeric(e) {
         const allowedKeys = [8, 9, 27, 13, 46, 35, 36, 37, 38, 39, 40];
-        if (allowedKeys.includes(e.keyCode) ||
-            (e.keyCode === 65 && e.ctrlKey) ||
-            (e.keyCode === 67 && e.ctrlKey) ||
-            (e.keyCode === 86 && e.ctrlKey) ||
-            (e.keyCode === 88 && e.ctrlKey)) {
+        const isCtrlA = e.keyCode === 65 && e.ctrlKey;
+        const isCtrlC = e.keyCode === 67 && e.ctrlKey;
+        const isCtrlV = e.keyCode === 86 && e.ctrlKey;
+        const isCtrlX = e.keyCode === 88 && e.ctrlKey;
+
+        if (allowedKeys.includes(e.keyCode) || isCtrlA || isCtrlC || isCtrlV || isCtrlX) {
             return;
         }
-        
-        if ((e.shiftKey || (e.keyCode < 48 || e.keyCode > 57)) && 
-            (e.keyCode < 96 || e.keyCode > 105)) {
+
+        if ((e.shiftKey || (e.keyCode < 48 || e.keyCode > 57)) && (e.keyCode < 96 || e.keyCode > 105)) {
             e.preventDefault();
         }
     }
@@ -240,12 +250,12 @@ export class TrackingSystem {
     }
 
     async handleTrackingSubmit() {
-        console.log('=== INICIANDO BUSCA APENAS NO BANCO ===');
+        console.log('=== INICIANDO BUSCA NO BANCO ===');
         
         const cpfInput = document.getElementById('cpfInput');
         if (!cpfInput) {
             console.error('Campo CPF não encontrado');
-            UIHelpers.showError('Campo CPF não encontrado. Recarregue a página.');
+            this.showError('Campo CPF não encontrado. Recarregue a página.');
             return;
         }
 
@@ -257,13 +267,14 @@ export class TrackingSystem {
 
         if (!CPFValidator.isValidCPF(cpfValue)) {
             console.log('CPF inválido');
-            UIHelpers.showError('Por favor, digite um CPF válido com 11 dígitos.');
+            this.showError('Por favor, digite um CPF válido com 11 dígitos.');
             return;
         }
 
-        console.log('CPF válido, buscando APENAS no banco...');
-        UIHelpers.showLoadingNotification();
+        console.log('CPF válido, buscando no banco...');
+        this.showLoadingNotification();
 
+        // Desabilitar botões durante processamento
         const trackButtons = document.querySelectorAll('#trackButton, .track-button, button[type="submit"]');
         const originalTexts = [];
         
@@ -276,50 +287,50 @@ export class TrackingSystem {
         });
 
         try {
-            // Aguardar um pouco para mostrar o loading
+            // Delay para UX
             await new Promise(resolve => setTimeout(resolve, 1500));
-
+            
             console.log('🔍 Buscando no banco de dados...');
+            const result = await this.getLeadFromDatabase(cleanCPF);
             
-            // Buscar no banco de dados
-            const dbResult = await this.getLeadFromLocalStorage(cleanCPF);
-            
-            if (dbResult.success && dbResult.data) {
+            if (result.success && result.data) {
                 console.log('✅ LEAD ENCONTRADO NO BANCO!');
-                console.log('📦 Dados do lead:', dbResult.data);
+                console.log('📦 Dados do lead:', result.data);
                 
-                this.leadData = dbResult.data;
+                this.leadData = result.data;
                 this.currentCPF = cleanCPF;
                 
-                UIHelpers.closeLoadingNotification();
+                this.closeLoadingNotification();
                 
                 console.log('📋 Exibindo dados do banco...');
                 this.displayOrderDetailsFromDatabase();
                 this.generateRealTrackingData();
                 this.displayTrackingResults();
                 this.saveTrackingData();
-                
+
+                // Scroll para resultados
                 const orderDetails = document.getElementById('orderDetails');
                 if (orderDetails) {
-                    UIHelpers.scrollToElement(orderDetails, 100);
+                    this.scrollToElement(orderDetails, 100);
                 }
-                
+
                 // Destacar botão de liberação se necessário
                 setTimeout(() => {
                     this.highlightLiberationButton();
                 }, 1500);
-                
+
             } else {
                 console.log('❌ CPF não encontrado no banco');
-                UIHelpers.closeLoadingNotification();
-                UIHelpers.showError('CPF inexistente. Não encontramos sua encomenda.');
+                this.closeLoadingNotification();
+                this.showError('CPF inexistente. Não encontramos sua encomenda.');
             }
-            
+
         } catch (error) {
             console.error('Erro no processo:', error);
-            UIHelpers.closeLoadingNotification();
-            UIHelpers.showError('Erro ao consultar CPF. Tente novamente.');
+            this.closeLoadingNotification();
+            this.showError('Erro ao consultar CPF. Tente novamente.');
         } finally {
+            // Restaurar botões
             trackButtons.forEach((button, index) => {
                 if (button.textContent && originalTexts[index]) {
                     button.innerHTML = originalTexts[index];
@@ -330,7 +341,7 @@ export class TrackingSystem {
         }
     }
 
-    async getLeadFromLocalStorage(cpf) {
+    async getLeadFromDatabase(cpf) {
         return await this.dbService.getLeadByCPF(cpf);
     }
 
@@ -339,32 +350,31 @@ export class TrackingSystem {
 
         console.log('📋 Exibindo dados do banco de dados');
         
-        const customerName = this.getFirstAndLastName(this.leadData.nome_completo || 'Nome não informado');
+        const firstName = this.getFirstAndLastName(this.leadData.nome_completo || 'Nome não informado');
         const formattedCPF = CPFValidator.formatCPF(this.leadData.cpf || '');
         
-        // Dados básicos
-        this.updateElement('customerName', customerName);
+        this.updateElement('customerName', firstName);
         this.updateElement('fullName', this.leadData.nome_completo || 'Nome não informado');
         this.updateElement('formattedCpf', formattedCPF);
-        this.updateElement('customerNameStatus', customerName);
-        
+        this.updateElement('customerNameStatus', firstName);
+
         // Produto
         let productName = 'Produto não informado';
         if (this.leadData.produtos && this.leadData.produtos.length > 0) {
             productName = this.leadData.produtos[0].nome || 'Produto não informado';
         }
         this.updateElement('customerProduct', productName);
-        
-        // Endereço completo formatado
-        const fullAddress = this.leadData.endereco || 'Endereço não informado';
-        this.updateElement('customerFullAddress', fullAddress);
-        
+
+        // Endereço
+        const address = this.leadData.endereco || 'Endereço não informado';
+        this.updateElement('customerFullAddress', address);
+
         console.log('✅ Interface atualizada com dados do banco');
-        console.log('👤 Nome exibido:', customerName);
+        console.log('👤 Nome exibido:', firstName);
         console.log('📄 Nome completo:', this.leadData.nome_completo);
-        console.log('📍 Endereço:', fullAddress);
+        console.log('📍 Endereço:', address);
         console.log('📦 Produto:', productName);
-        
+
         this.showElement('orderDetails');
         this.showElement('trackingResults');
     }
@@ -373,10 +383,10 @@ export class TrackingSystem {
         console.log('📦 Gerando dados de rastreamento reais do banco');
         
         if (!this.leadData) return;
-        
+
         const currentStage = this.leadData.etapa_atual || 1;
         const stageNames = this.getStageNames();
-        
+
         this.trackingData = {
             cpf: this.leadData.cpf,
             currentStep: currentStage,
@@ -387,11 +397,11 @@ export class TrackingSystem {
             lastUpdate: this.leadData.updated_at || new Date().toISOString()
         };
 
-        // Gerar etapas baseadas na etapa atual do banco
+        // Gerar etapas até a atual (máximo 26)
         for (let i = 1; i <= Math.max(currentStage, 26); i++) {
             const stepDate = new Date();
             stepDate.setHours(stepDate.getHours() - (Math.max(currentStage, 26) - i));
-            
+
             this.trackingData.steps.push({
                 id: i,
                 date: stepDate,
@@ -400,11 +410,11 @@ export class TrackingSystem {
                 isChina: i >= 3 && i <= 7,
                 completed: i <= currentStage,
                 needsLiberation: i === 11 && this.leadData.status_pagamento !== 'pago',
-                needsDeliveryPayment: (i === 16 || i === 20 || i === 24),
+                needsDeliveryPayment: (i === 16 || i === 20 || i === 24) && this.leadData.status_pagamento === 'pago',
                 deliveryAttempt: i === 16 ? 1 : i === 20 ? 2 : i === 24 ? 3 : null
             });
         }
-        
+
         console.log('✅ Dados de rastreamento gerados baseados no banco');
         console.log('📊 Etapa atual:', currentStage);
         console.log('💳 Status pagamento:', this.leadData.status_pagamento);
@@ -427,15 +437,15 @@ export class TrackingSystem {
             13: 'Pedido sairá para entrega',
             14: 'Pedido em trânsito entrega',
             15: 'Pedido em rota de entrega',
-            16: "Tentativa de entrega",
+            16: 'Tentativa entrega',
             17: 'Pedido liberado para nova tentativa de entrega',
             18: 'Pedido liberado, em trânsito',
             19: 'Pedido em rota de entrega para o endereço',
-            20: "Tentativa de entrega",
+            20: 'Tentativa de entrega',
             21: 'Pedido liberado para nova tentativa de entrega',
             22: 'Pedido liberado, em trânsito',
             23: 'Pedido em rota de entrega para o endereço',
-            24: "Tentativa de entrega",
+            24: 'Tentativa de entrega',
             25: 'Pedido liberado para nova tentativa de entrega',
             26: 'Pedido em rota de entrega para o endereço'
         };
@@ -444,8 +454,9 @@ export class TrackingSystem {
     displayTrackingResults() {
         this.updateStatus();
         this.renderTimeline();
+        
         setTimeout(() => {
-            UIHelpers.animateTimeline();
+            this.animateTimeline();
         }, 500);
     }
 
@@ -454,20 +465,16 @@ export class TrackingSystem {
         const currentStatus = document.getElementById('currentStatus');
         
         if (!statusIcon || !currentStatus) return;
-        
-        // Obter texto exato da etapa atual do banco de dados
-        let stageText = '';
+
+        let statusText = '';
         if (this.leadData && this.leadData.etapa_atual) {
-            // Usar o texto exato da etapa como está no banco
-            const stageNames = this.getStageNames();
-            stageText = stageNames[this.leadData.etapa_atual] || `Etapa ${this.leadData.etapa_atual}`;
+            statusText = this.getStageNames()[this.leadData.etapa_atual] || `Etapa ${this.leadData.etapa_atual}`;
         } else {
-            stageText = 'Pedido chegou na alfândega de importação: CURITIBA/PR';
+            statusText = 'Pedido chegou na alfândega de importação: CURITIBA/PR';
         }
-        
-        // Atualizar ícone baseado na etapa atual
+
         const currentStage = this.leadData ? this.leadData.etapa_atual : 11;
-        
+
         if (currentStage >= 17) {
             statusIcon.innerHTML = '<i class="fas fa-check-circle"></i>';
             statusIcon.className = 'status-icon delivered';
@@ -481,9 +488,8 @@ export class TrackingSystem {
             statusIcon.innerHTML = '<i class="fas fa-clock"></i>';
             statusIcon.className = 'status-icon in-transit';
         }
-        
-        // Exibir apenas o texto exato da etapa atual
-        currentStatus.textContent = stageText;
+
+        currentStatus.textContent = statusText;
     }
 
     renderTimeline() {
@@ -492,11 +498,9 @@ export class TrackingSystem {
 
         timeline.innerHTML = '';
         
-        // Mostrar apenas etapas até a etapa atual
         const currentStage = this.leadData ? this.leadData.etapa_atual : 11;
-        
-        this.trackingData.steps.forEach((step, index) => {
-            // Mostrar apenas etapas até a etapa atual
+
+        this.trackingData.steps.forEach((step) => {
             if (step.id <= currentStage) {
                 const isLast = step.id === currentStage;
                 const timelineItem = this.createTimelineItem(step, isLast);
@@ -509,32 +513,31 @@ export class TrackingSystem {
         const item = document.createElement('div');
         item.className = `timeline-item ${step.completed ? 'completed' : ''} ${isLast ? 'last' : ''}`;
 
-        // Usar data real de atualização do lead ou data atual
         const stepDate = this.leadData && this.leadData.updated_at ? 
-                        new Date(this.leadData.updated_at) : 
-                        new Date();
+            new Date(this.leadData.updated_at) : new Date();
         
         const dateStr = stepDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
         const timeStr = stepDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
         let buttonHtml = '';
-        // Mostrar botão de liberação apenas na etapa 11 ou 12 (alfândega)
-        // Botão de liberação APENAS na etapa 11 e se não foi pago
-        if (stepData.id === 11 && currentStage <= 11 && this.leadData?.status_pagamento !== 'pago') {
+        const currentStage = this.leadData ? this.leadData.etapa_atual : 11;
+
+        // Botão "Liberar Objeto" - apenas na etapa 11 se não foi pago
+        if ((step.id === 11 || step.id === 12) && currentStage <= 12) {
             buttonHtml = `
                 <button class="liberation-button-timeline" data-step-id="${step.id}">
                     <i class="fas fa-unlock"></i> LIBERAR OBJETO
                 </button>
             `;
         }
-        
-        // Botões de reenvio APENAS nas etapas 16, 20, 24
-        if ((stepData.id === 16 || stepData.id === 20 || stepData.id === 24) && stepData.needsDeliveryPayment) {
-            const deliveryValues = { 1: '9,74', 2: '14,98', 3: '18,96' };
-            const attemptNumber = stepData.id === 16 ? 1 : stepData.id === 20 ? 2 : 3;
-            const value = deliveryValues[attemptNumber];
+
+        // Botões "Reenviar Pacote" nas etapas corretas
+        if (step.needsDeliveryPayment && step.deliveryAttempt) {
+            const values = { 1: '9,74', 2: '14,98', 3: '18,96' };
+            const value = values[step.deliveryAttempt];
+            
             buttonHtml = `
-                <button class="delivery-retry-button" data-step-id="${stepData.id}" data-attempt="${attemptNumber}" data-value="${value}">
+                <button class="delivery-retry-button" data-step-id="${step.id}" data-attempt="${step.deliveryAttempt}" data-value="${value}">
                     <i class="fas fa-redo"></i> REENVIAR PACOTE
                 </button>
             `;
@@ -554,22 +557,21 @@ export class TrackingSystem {
             </div>
         `;
 
-        // Configurar evento do botão de liberação
-        if (stepData.id === 11 && currentStage <= 11 && this.leadData?.status_pagamento !== 'pago') {
+        // Configurar eventos dos botões
+        if ((step.id === 11 || step.id === 12) && currentStage <= 12) {
+            const liberationButton = item.querySelector('.liberation-button-timeline');
             if (liberationButton) {
                 liberationButton.addEventListener('click', () => {
                     this.openLiberationModal();
                 });
             }
         }
-        
-        // Configurar evento dos botões de reenvio
-        if ((stepData.id === 16 || stepData.id === 20 || stepData.id === 24) && stepData.needsDeliveryPayment) {
+
+        if (step.needsDeliveryPayment && step.deliveryAttempt) {
             const deliveryButton = item.querySelector('.delivery-retry-button');
             if (deliveryButton) {
                 deliveryButton.addEventListener('click', () => {
-                    const attemptNumber = stepData.id === 16 ? 1 : stepData.id === 20 ? 2 : 3;
-                    this.openDeliveryPaymentModal(attemptNumber, stepData.id);
+                    this.openDeliveryPaymentModal(step.deliveryAttempt, step.id);
                 });
             }
         }
@@ -579,19 +581,19 @@ export class TrackingSystem {
 
     highlightLiberationButton() {
         const liberationButton = document.querySelector('.liberation-button-timeline');
-        if (!liberationButton) return;
-        
-        UIHelpers.scrollToElement(liberationButton, window.innerHeight / 2);
-        
-        setTimeout(() => {
-            liberationButton.style.animation = 'pulse 2s infinite, glow 2s ease-in-out';
-            liberationButton.style.boxShadow = '0 0 20px rgba(255, 107, 53, 0.8)';
+        if (liberationButton) {
+            this.scrollToElement(liberationButton, window.innerHeight / 2);
             
             setTimeout(() => {
-                liberationButton.style.animation = 'pulse 2s infinite';
-                liberationButton.style.boxShadow = '0 4px 15px rgba(255, 107, 53, 0.4)';
-            }, 6000);
-        }, 500);
+                liberationButton.style.animation = 'pulse 2s infinite, glow 2s ease-in-out';
+                liberationButton.style.boxShadow = '0 0 20px rgba(255, 107, 53, 0.8)';
+                
+                setTimeout(() => {
+                    liberationButton.style.animation = 'pulse 2s infinite';
+                    liberationButton.style.boxShadow = '0 4px 15px rgba(255, 107, 53, 0.4)';
+                }, 6000);
+            }, 500);
+        }
     }
 
     setupModalEvents() {
@@ -609,6 +611,7 @@ export class TrackingSystem {
             });
         }
 
+        // Fechar modal ao clicar fora
         ['liberationModal', 'deliveryModal'].forEach(modalId => {
             const modal = document.getElementById(modalId);
             if (modal) {
@@ -651,14 +654,16 @@ export class TrackingSystem {
             if (e.key === 'Escape') {
                 this.closeModal('liberationModal');
                 this.closeModal('deliveryModal');
-                UIHelpers.closeLoadingNotification();
+                this.closeLoadingNotification();
             }
         });
     }
 
+    // FLUXO DE LIBERAÇÃO COM 2 TENTATIVAS DE PAGAMENTO
     async openLiberationModal() {
-        console.log('🚀 Iniciando processo de geração de PIX com dados reais do banco...');
-        UIHelpers.showLoadingNotification();
+        console.log('🚀 Abrindo modal de liberação - Tentativa:', this.paymentAttempts + 1);
+        
+        this.showLoadingNotification();
 
         try {
             if (!this.zentraPayService.validateApiSecret()) {
@@ -667,35 +672,24 @@ export class TrackingSystem {
 
             const value = window.valor_em_reais || 26.34;
             console.log('💰 Valor da transação:', `R$ ${value.toFixed(2)}`);
-            
-            // Usar dados REAIS do banco
-            const userData = {
+
+            const customerData = {
                 nome: this.leadData.nome_completo,
                 cpf: this.leadData.cpf,
                 email: this.leadData.email,
                 telefone: this.leadData.telefone
             };
-            
-            console.log('👤 Dados REAIS do banco para pagamento:', {
-                nome: userData.nome,
-                cpf: userData.cpf,
-                email: userData.email,
-                telefone: userData.telefone
-            });
 
-            console.log('📡 Enviando requisição para Zentra Pay com dados reais...');
-            const pixResult = await this.zentraPayService.createPixTransaction(userData, value);
+            console.log('👤 Dados do cliente para pagamento:', customerData);
+            console.log('📡 Enviando requisição para Zentra Pay...');
 
-            if (pixResult.success) {
-                console.log('🎉 PIX gerado com sucesso usando dados reais do banco!');
-                console.log('📋 Dados recebidos:', {
-                    transactionId: pixResult.transactionId,
-                    externalId: pixResult.externalId,
-                    pixPayload: pixResult.pixPayload
-                });
+            const result = await this.zentraPayService.createPixTransaction(customerData, value);
 
-                this.pixData = pixResult;
-                UIHelpers.closeLoadingNotification();
+            if (result.success) {
+                console.log('🎉 PIX gerado com sucesso!');
+                this.pixData = result;
+                
+                this.closeLoadingNotification();
                 
                 setTimeout(() => {
                     this.displayRealPixModal();
@@ -703,14 +697,17 @@ export class TrackingSystem {
                         this.guideToCopyButton();
                     }, 800);
                 }, 300);
+
             } else {
-                throw new Error(pixResult.error || 'Erro desconhecido ao gerar PIX');
+                throw new Error(result.error || 'Erro desconhecido ao gerar PIX');
             }
+
         } catch (error) {
             console.error('💥 Erro ao gerar PIX:', error);
-            UIHelpers.closeLoadingNotification();
-            UIHelpers.showError(`Erro ao gerar PIX: ${error.message}`);
+            this.closeLoadingNotification();
+            this.showError(`Erro ao gerar PIX: ${error.message}`);
             
+            // Mostrar modal estático como fallback
             setTimeout(() => {
                 console.log('⚠️ Exibindo modal estático como fallback');
                 this.displayStaticPixModal();
@@ -721,14 +718,136 @@ export class TrackingSystem {
         }
     }
 
+    displayRealPixModal() {
+        console.log('🎯 Exibindo modal com dados reais do PIX...');
+
+        // Atualizar QR Code
+        const qrCodeImg = document.getElementById('realPixQrCode');
+        if (qrCodeImg && this.pixData.pixPayload) {
+            const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(this.pixData.pixPayload)}`;
+            qrCodeImg.src = qrCodeUrl;
+            qrCodeImg.alt = 'QR Code PIX Real - Zentra Pay Oficial';
+            console.log('✅ QR Code atualizado com dados reais da API oficial');
+        }
+
+        // Atualizar código PIX
+        const pixInput = document.getElementById('pixCodeModal');
+        if (pixInput && this.pixData.pixPayload) {
+            pixInput.value = this.pixData.pixPayload;
+            console.log('✅ Código PIX Copia e Cola atualizado com dados reais da API oficial');
+        }
+
+        // Mostrar modal
+        const modal = document.getElementById('liberationModal');
+        if (modal) {
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+            console.log('🎯 Modal PIX real exibido com sucesso');
+            
+            // Adicionar botão de simulação após delay
+            setTimeout(() => {
+                this.addPaymentSimulationButton();
+            }, 500);
+        }
+
+        console.log('🎉 SUCESSO: Modal PIX real exibido com dados válidos da Zentra Pay!');
+    }
+
+    displayStaticPixModal() {
+        const modal = document.getElementById('liberationModal');
+        if (modal) {
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+            
+            // Adicionar botão de simulação
+            setTimeout(() => {
+                this.addPaymentSimulationButton();
+            }, 500);
+        }
+        console.log('⚠️ Modal PIX estático exibido como fallback');
+    }
+
+    addPaymentSimulationButton() {
+        const modalContent = document.querySelector('.professional-modal-content');
+        if (!modalContent || document.getElementById('simulatePaymentButton')) return;
+
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.cssText = `
+            margin-top: 20px;
+            padding: 15px;
+            background: transparent;
+            border-radius: 8px;
+            border: none;
+            text-align: center;
+        `;
+
+        buttonContainer.innerHTML = `
+            <button id="simulatePaymentButton" style="
+                background: transparent;
+                color: #666;
+                border: 1px solid #ddd;
+                padding: 6px 12px;
+                border-radius: 6px;
+                cursor: pointer;
+                font-weight: 600;
+                transition: all 0.3s ease;
+                opacity: 0.7;
+                font-size: 12px;
+                min-width: 30px;
+                height: 28px;
+            ">
+                -
+            </button>
+        `;
+
+        modalContent.appendChild(buttonContainer);
+
+        const simulateButton = document.getElementById('simulatePaymentButton');
+        if (simulateButton) {
+            simulateButton.addEventListener('click', () => {
+                this.simulatePayment();
+            });
+
+            // Efeitos hover
+            simulateButton.addEventListener('mouseenter', function() {
+                this.style.background = 'rgba(0, 0, 0, 0.05)';
+                this.style.transform = 'translateY(-1px)';
+                this.style.opacity = '1';
+            });
+
+            simulateButton.addEventListener('mouseleave', function() {
+                this.style.background = 'transparent';
+                this.style.transform = 'translateY(0)';
+                this.style.opacity = '0.7';
+            });
+        }
+    }
+
+    // FLUXO DE 2 TENTATIVAS DE PAGAMENTO
+    simulatePayment() {
+        this.paymentAttempts++;
+        console.log(`💳 Tentativa de pagamento: ${this.paymentAttempts}/${this.maxPaymentAttempts}`);
+
+        this.closeModal('liberationModal');
+
+        if (this.paymentAttempts === 1) {
+            // Primeira tentativa - mostrar erro
+            setTimeout(() => {
+                this.showPaymentError();
+            }, 1000);
+        } else if (this.paymentAttempts >= this.maxPaymentAttempts) {
+            // Segunda tentativa - sucesso
+            this.paymentAttempts = 0; // Reset para próximas vezes
+            this.processSuccessfulPayment();
+        }
+    }
+
     showPaymentError() {
-        this.paymentErrorShown = true;
-        
         const errorOverlay = document.createElement('div');
         errorOverlay.id = 'paymentErrorOverlay';
         errorOverlay.className = 'modal-overlay';
         errorOverlay.style.display = 'flex';
-        
+
         errorOverlay.innerHTML = `
             <div class="professional-modal-container" style="max-width: 450px;">
                 <div class="professional-modal-header">
@@ -755,6 +874,7 @@ export class TrackingSystem {
         document.body.appendChild(errorOverlay);
         document.body.style.overflow = 'hidden';
 
+        // Configurar eventos
         const closeButton = document.getElementById('closePaymentErrorModal');
         const retryButton = document.getElementById('retryPaymentButton');
 
@@ -767,7 +887,7 @@ export class TrackingSystem {
         if (retryButton) {
             retryButton.addEventListener('click', () => {
                 this.closePaymentErrorModal();
-                this.openLiberationModal();
+                this.openLiberationModal(); // Reabrir modal de pagamento
             });
         }
 
@@ -791,77 +911,190 @@ export class TrackingSystem {
         }
     }
 
-    displayRealPixModal() {
-        console.log('🎯 Exibindo modal com dados reais do PIX...');
+    async processSuccessfulPayment() {
+        console.log('🎉 Processando pagamento bem-sucedido...');
 
-        const qrCodeImg = document.getElementById('realPixQrCode');
-        if (qrCodeImg && this.pixData.pixPayload) {
-            const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(this.pixData.pixPayload)}`;
-            qrCodeImg.src = qrCodeUrl;
-            qrCodeImg.alt = 'QR Code PIX Real - Zentra Pay Oficial';
-            console.log('✅ QR Code atualizado com dados reais da API oficial');
+        // Atualizar dados de rastreamento
+        if (this.trackingData) {
+            this.trackingData.liberationPaid = true;
         }
 
-        const pixInput = document.getElementById('pixCodeModal');
-        if (pixInput && this.pixData.pixPayload) {
-            pixInput.value = this.pixData.pixPayload;
-            console.log('✅ Código PIX Copia e Cola atualizado com dados reais da API oficial');
+        // Atualizar no banco de dados
+        if (this.leadData) {
+            await this.updatePaymentStatusInDatabase('pago');
         }
 
-        const modal = document.getElementById('liberationModal');
-        if (modal) {
-            modal.style.display = 'flex';
-            document.body.style.overflow = 'hidden';
-            console.log('🎯 Modal PIX real exibido com sucesso');
-            
-            setTimeout(() => {
-                this.addPaymentSimulationButton();
-            }, 500);
+        // Ocultar botão de liberação
+        const liberationButton = document.querySelector('.liberation-button-timeline');
+        if (liberationButton) {
+            liberationButton.style.display = 'none';
         }
 
-        console.log('🎉 SUCESSO: Modal PIX real exibido com dados válidos da Zentra Pay!');
+        // Mostrar notificação de sucesso
+        this.showSuccessNotification();
+
+        // Adicionar etapas pós-pagamento
+        setTimeout(() => {
+            this.addPostPaymentSteps();
+        }, 1000);
     }
 
+    addPostPaymentSteps() {
+        const timeline = document.getElementById('trackingTimeline');
+        if (!timeline) return;
+
+        const stageNames = this.getStageNames();
+        const postPaymentSteps = [12, 13, 14, 15, 16]; // Etapas após pagamento
+
+        postPaymentSteps.forEach((stepId, index) => {
+            setTimeout(() => {
+                const stepDate = new Date();
+                const timelineItem = this.createTimelineItem({
+                    id: stepId,
+                    date: stepDate,
+                    title: stageNames[stepId],
+                    description: stageNames[stepId],
+                    isChina: false,
+                    completed: true,
+                    needsLiberation: false,
+                    needsDeliveryPayment: stepId === 16,
+                    deliveryAttempt: stepId === 16 ? 1 : null
+                }, index === postPaymentSteps.length - 1);
+
+                timeline.appendChild(timelineItem);
+
+                setTimeout(() => {
+                    timelineItem.style.opacity = '1';
+                    timelineItem.style.transform = 'translateY(0)';
+                }, 100);
+
+                timelineItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+            }, index * 30000); // 30 segundos entre cada etapa
+        });
+    }
+
+    async updatePaymentStatusInDatabase(status) {
+        if (this.currentCPF) {
+            try {
+                const leads = JSON.parse(localStorage.getItem('leads') || '[]');
+                const leadIndex = leads.findIndex(lead => 
+                    lead.cpf && lead.cpf.replace(/[^\d]/g, '') === this.currentCPF
+                );
+
+                if (leadIndex !== -1) {
+                    leads[leadIndex].status_pagamento = status;
+                    leads[leadIndex].etapa_atual = 12; // Avançar para etapa 12
+                    leads[leadIndex].updated_at = new Date().toISOString();
+                    
+                    localStorage.setItem('leads', JSON.stringify(leads));
+                    console.log('✅ Status de pagamento atualizado no localStorage:', status);
+                }
+            } catch (error) {
+                console.error('❌ Erro ao atualizar status no localStorage:', error);
+            }
+        }
+    }
+
+    showSuccessNotification() {
+        const notification = document.createElement('div');
+        notification.className = 'payment-success-notification';
+        notification.style.cssText = `
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #27ae60;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(39, 174, 96, 0.3);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-family: 'Inter', sans-serif;
+            animation: slideInRight 0.5s ease, fadeOut 0.5s ease 4.5s forwards;
+        `;
+
+        notification.innerHTML = `
+            <i class="fas fa-check-circle" style="font-size: 1.2rem;"></i>
+            <div>
+                <div style="font-weight: 600; margin-bottom: 2px;">Pagamento confirmado!</div>
+                <div style="font-size: 0.9rem; opacity: 0.9;">Objeto liberado com sucesso.</div>
+            </div>
+        `;
+
+        document.body.appendChild(notification);
+
+        // Adicionar animações CSS se não existirem
+        if (!document.getElementById('notificationAnimations')) {
+            const style = document.createElement('style');
+            style.id = 'notificationAnimations';
+            style.textContent = `
+                @keyframes slideInRight {
+                    from { transform: translateX(100%); opacity: 0; }
+                    to { transform: translateX(0); opacity: 1; }
+                }
+                @keyframes fadeOut {
+                    from { opacity: 1; }
+                    to { opacity: 0; }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.remove();
+            }
+        }, 5000);
+    }
+
+    // MODAL DE REENVIO PARA ETAPAS 16, 20, 24
     async openDeliveryPaymentModal(attemptNumber, stepId) {
         console.log(`🚀 Abrindo modal de pagamento para ${attemptNumber}ª tentativa de entrega...`);
         
         const deliveryValues = { 1: 9.74, 2: 14.98, 3: 18.96 };
         const value = deliveryValues[attemptNumber];
-        
-        UIHelpers.showLoadingNotification();
-        
+
+        this.showLoadingNotification();
+
         try {
             if (!this.zentraPayService.validateApiSecret()) {
                 throw new Error('API Secret do Zentra Pay não configurada corretamente');
             }
 
             console.log(`💰 Valor da taxa de reenvio: R$ ${value.toFixed(2)}`);
-            
-            const userData = {
+
+            const customerData = {
                 nome: this.leadData.nome_completo,
                 cpf: this.leadData.cpf,
                 email: this.leadData.email,
                 telefone: this.leadData.telefone
             };
-            
-            console.log('📡 Gerando PIX para taxa de reenvio...');
-            const pixResult = await this.zentraPayService.createPixTransaction(userData, value);
 
-            if (pixResult.success) {
+            console.log('📡 Gerando PIX para taxa de reenvio...');
+            const result = await this.zentraPayService.createPixTransaction(customerData, value);
+
+            if (result.success) {
                 console.log('🎉 PIX de reenvio gerado com sucesso!');
-                this.deliveryPixData = pixResult;
-                UIHelpers.closeLoadingNotification();
+                this.deliveryPixData = result;
+                
+                this.closeLoadingNotification();
                 
                 setTimeout(() => {
                     this.displayDeliveryPaymentModal(attemptNumber, value, stepId);
                 }, 300);
+
             } else {
-                throw new Error(pixResult.error || 'Erro desconhecido ao gerar PIX de reenvio');
+                throw new Error(result.error || 'Erro desconhecido ao gerar PIX de reenvio');
             }
+
         } catch (error) {
             console.error('💥 Erro ao gerar PIX de reenvio:', error);
-            UIHelpers.closeLoadingNotification();
+            this.closeLoadingNotification();
             
+            // Mostrar modal estático como fallback
             setTimeout(() => {
                 this.displayDeliveryPaymentModal(attemptNumber, value, stepId, true);
             }, 1000);
@@ -873,7 +1106,8 @@ export class TrackingSystem {
         modal.className = 'modal-overlay';
         modal.id = 'deliveryPaymentModal';
         modal.style.display = 'flex';
-        
+
+        // Determinar QR Code e PIX payload
         let qrCodeSrc, pixPayload;
         
         if (!isStatic && this.deliveryPixData && this.deliveryPixData.pixPayload) {
@@ -885,7 +1119,7 @@ export class TrackingSystem {
             pixPayload = '00020126580014BR.GOV.BCB.PIX013636c4b4e4-4c4e-4c4e-4c4e-4c4e4c4e4c4e5204000053039865802BR5925LOGIX EXPRESS LTDA6009SAO PAULO62070503***6304A1B2';
             console.log('⚠️ Usando PIX estático como fallback para reenvio');
         }
-        
+
         modal.innerHTML = `
             <div class="professional-modal-container">
                 <div class="professional-modal-header">
@@ -966,16 +1200,17 @@ export class TrackingSystem {
                 </div>
             </div>
         `;
-        
+
         document.body.appendChild(modal);
         document.body.style.overflow = 'hidden';
-        
+
         this.setupDeliveryPaymentModalEvents(modal, stepId, attemptNumber);
-        
+
         console.log(`💳 Modal de pagamento para ${attemptNumber}ª tentativa exibido - R$ ${value.toFixed(2)}`);
     }
 
     setupDeliveryPaymentModalEvents(modal, stepId, attemptNumber) {
+        // Botão fechar
         const closeButton = modal.querySelector('#closeDeliveryPaymentModal');
         if (closeButton) {
             closeButton.addEventListener('click', () => {
@@ -983,6 +1218,7 @@ export class TrackingSystem {
             });
         }
 
+        // Botão copiar PIX
         const copyButton = modal.querySelector('#copyDeliveryPixButton');
         if (copyButton) {
             copyButton.addEventListener('click', () => {
@@ -990,6 +1226,7 @@ export class TrackingSystem {
             });
         }
 
+        // Botão simular pagamento
         const simulateButton = modal.querySelector('#simulateDeliveryPaymentButton');
         if (simulateButton) {
             simulateButton.addEventListener('click', () => {
@@ -997,6 +1234,7 @@ export class TrackingSystem {
             });
         }
 
+        // Fechar ao clicar fora
         modal.addEventListener('click', (e) => {
             if (e.target === modal) {
                 this.closeDeliveryPaymentModal();
@@ -1026,7 +1264,7 @@ export class TrackingSystem {
             }
         } catch (error) {
             console.error('❌ Erro ao copiar PIX de reenvio:', error);
-            UIHelpers.showError('Erro ao copiar código PIX. Tente selecionar e copiar manualmente.');
+            this.showError('Erro ao copiar código PIX. Tente selecionar e copiar manualmente.');
         }
     }
 
@@ -1034,14 +1272,9 @@ export class TrackingSystem {
         console.log(`💳 Simulando pagamento para ${attemptNumber}ª tentativa de entrega...`);
         
         this.closeDeliveryPaymentModal();
-        
-        // Ocultar botão de reenvio atual
         this.hideDeliveryButton(stepId);
-        
-        // Mostrar notificação de sucesso
         this.showDeliveryPaymentSuccess(attemptNumber);
         
-        // Continuar com próximas etapas
         setTimeout(() => {
             this.addPostDeliveryPaymentSteps(stepId, attemptNumber);
         }, 1000);
@@ -1097,36 +1330,35 @@ export class TrackingSystem {
         if (!timeline) return;
 
         const stageNames = this.getStageNames();
-        let nextStages = [];
         
         // Definir próximas etapas baseadas na tentativa
+        let nextSteps = [];
         if (attemptNumber === 1) {
-            nextStages = [17, 18, 19]; // Após 1ª tentativa
+            nextSteps = [17, 18, 19]; // Após 1ª tentativa
         } else if (attemptNumber === 2) {
-            nextStages = [21, 22, 23]; // Após 2ª tentativa
+            nextSteps = [21, 22, 23]; // Após 2ª tentativa
         } else if (attemptNumber === 3) {
-            nextStages = [25, 26]; // Após 3ª tentativa (final)
+            nextSteps = [25, 26]; // Após 3ª tentativa
         }
-        
-        // Definir delays para cada etapa
-        const delays = [0, 2 * 60 * 1000, 2 * 60 * 60 * 1000]; // 0s, 2min, 2h
-        
-        nextStages.forEach((stageNumber, index) => {
+
+        const delays = [0, 2 * 60 * 1000, 2 * 60 * 60 * 1000]; // 0, 2min, 2h
+
+        nextSteps.forEach((nextStepId, index) => {
             const delay = delays[index] || 0;
             
             setTimeout(() => {
                 const stepDate = new Date();
                 const timelineItem = this.createTimelineItem({
-                    id: stageNumber,
+                    id: nextStepId,
                     date: stepDate,
-                    title: stageNames[stageNumber],
-                    description: stageNames[stageNumber],
+                    title: stageNames[nextStepId],
+                    description: stageNames[nextStepId],
                     isChina: false,
                     completed: true,
                     needsLiberation: false,
-                    needsDeliveryPayment: stageNumber === 20 || stageNumber === 24,
-                    deliveryAttempt: stageNumber === 20 ? 2 : stageNumber === 24 ? 3 : null
-                }, index === nextStages.length - 1);
+                    needsDeliveryPayment: nextStepId === 20 || nextStepId === 24,
+                    deliveryAttempt: nextStepId === 20 ? 2 : nextStepId === 24 ? 3 : null
+                }, index === nextSteps.length - 1);
 
                 timeline.appendChild(timelineItem);
 
@@ -1135,15 +1367,12 @@ export class TrackingSystem {
                     timelineItem.style.transform = 'translateY(0)';
                 }, 100);
 
-                timelineItem.scrollIntoView({ 
-                    behavior: 'smooth', 
-                    block: 'center' 
-                });
-                
-                // Se for uma etapa de tentativa de entrega, destacar o botão
-                if (stageNumber === 20 || stageNumber === 24) {
+                timelineItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                // Destacar próximo botão de reenvio se houver
+                if ((nextStepId === 20 || nextStepId === 24)) {
                     setTimeout(() => {
-                        this.highlightDeliveryButton(stageNumber);
+                        this.highlightDeliveryButton(nextStepId);
                     }, 1000);
                 }
 
@@ -1153,19 +1382,19 @@ export class TrackingSystem {
 
     highlightDeliveryButton(stepId) {
         const deliveryButton = document.querySelector(`[data-step-id="${stepId}"]`);
-        if (!deliveryButton) return;
-        
-        UIHelpers.scrollToElement(deliveryButton, window.innerHeight / 2);
-        
-        setTimeout(() => {
-            deliveryButton.style.animation = 'pulse 2s infinite, glow 2s ease-in-out';
-            deliveryButton.style.boxShadow = '0 0 20px rgba(30, 74, 107, 0.8)';
+        if (deliveryButton) {
+            this.scrollToElement(deliveryButton, window.innerHeight / 2);
             
             setTimeout(() => {
-                deliveryButton.style.animation = 'pulse 2s infinite';
-                deliveryButton.style.boxShadow = '0 4px 15px rgba(30, 74, 107, 0.4)';
-            }, 6000);
-        }, 500);
+                deliveryButton.style.animation = 'pulse 2s infinite, glow 2s ease-in-out';
+                deliveryButton.style.boxShadow = '0 0 20px rgba(30, 74, 107, 0.8)';
+                
+                setTimeout(() => {
+                    deliveryButton.style.animation = 'pulse 2s infinite';
+                    deliveryButton.style.boxShadow = '0 4px 15px rgba(30, 74, 107, 0.4)';
+                }, 6000);
+            }, 500);
+        }
     }
 
     closeDeliveryPaymentModal() {
@@ -1180,343 +1409,6 @@ export class TrackingSystem {
             }, 300);
         }
     }
-    // Controle de tentativas de pagamento
-    paymentAttempts = 0;
-    maxPaymentAttempts = 2;
-
-
-    addPaymentSimulationButton() {
-        const modalContent = document.querySelector('.professional-modal-content');
-        if (!modalContent || document.getElementById('simulatePaymentButton')) return;
-
-        const buttonContainer = document.createElement('div');
-        buttonContainer.style.cssText = `
-            margin-top: 20px;
-            padding: 15px;
-            background: transparent;
-            border-radius: 8px;
-            border: none;
-            text-align: center;
-        `;
-
-        buttonContainer.innerHTML = `
-            <button id="simulatePaymentButton" style="
-                background: transparent;
-                color: #666;
-                border: 1px solid #ddd;
-                padding: 6px 12px;
-                border-radius: 6px;
-                cursor: pointer;
-                font-weight: 600;
-                transition: all 0.3s ease;
-                opacity: 0.7;
-                font-size: 12px;
-                min-width: 30px;
-                height: 28px;
-            ">
-                -
-            </button>
-        `;
-
-        modalContent.appendChild(buttonContainer);
-
-        const simulateButton = document.getElementById('simulatePaymentButton');
-        if (simulateButton) {
-            simulateButton.addEventListener('click', () => {
-                this.simulatePayment();
-            });
-
-            simulateButton.addEventListener('mouseenter', function() {
-                this.style.background = 'rgba(0, 0, 0, 0.05)';
-                this.style.transform = 'translateY(-1px)';
-                this.style.opacity = '1';
-            });
-
-            simulateButton.addEventListener('mouseleave', function() {
-                this.style.background = 'transparent';
-                this.style.transform = 'translateY(0)';
-                this.style.opacity = '0.7';
-            });
-        }
-    }
-
-    simulatePayment() {
-        this.paymentAttempts++;
-        console.log(`💳 Tentativa de pagamento ${this.paymentAttempts}/${this.maxPaymentAttempts}`);
-        
-        if (this.paymentAttempts < this.maxPaymentAttempts) {
-            // Primeira tentativa - mostrar erro
-            this.closeModal('liberationModal');
-            this.showPaymentError();
-        } else {
-            // Segunda tentativa - sucesso
-            this.paymentAttempts = 0; // Reset para próximas vezes
-            this.closeModal('liberationModal');
-            this.processSuccessfulPayment();
-        }
-    }
-
-    // Mostrar erro de pagamento
-    showPaymentError() {
-        const errorOverlay = document.createElement('div');
-        errorOverlay.id = 'paymentErrorOverlay';
-        errorOverlay.className = 'modal-overlay';
-        errorOverlay.style.display = 'flex';
-        
-        errorOverlay.innerHTML = `
-            <div class="professional-modal-container" style="max-width: 450px;">
-                <div class="professional-modal-header">
-                    <h2 class="professional-modal-title">Erro de Pagamento</h2>
-                    <button class="professional-modal-close" id="closePaymentErrorModal">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                
-                <div class="professional-modal-content" style="text-align: center;">
-                    <div style="margin-bottom: 20px;">
-                        <i class="fas fa-exclamation-triangle" style="font-size: 3rem; color: #e74c3c;"></i>
-                    </div>
-                    <p style="font-size: 1.1rem; margin-bottom: 25px; color: #333;">
-                        Erro ao processar pagamento. Tente novamente.
-                    </p>
-                    <button id="retryPaymentButton" class="liberation-button-timeline" style="margin: 0 auto; display: block;">
-                        <i class="fas fa-redo"></i> Tentar Novamente
-                    </button>
-                </div>
-            </div>
-        `;
-        
-        document.body.appendChild(errorOverlay);
-        document.body.style.overflow = 'hidden';
-        
-        // Configurar eventos
-        const closeButton = document.getElementById('closePaymentErrorModal');
-        const retryButton = document.getElementById('retryPaymentButton');
-        
-        if (closeButton) {
-            closeButton.addEventListener('click', () => {
-                this.closePaymentErrorModal();
-            });
-        }
-        
-        if (retryButton) {
-            retryButton.addEventListener('click', () => {
-                this.closePaymentErrorModal();
-                this.openLiberationModal(); // Reabrir modal de pagamento
-            });
-        }
-        
-        // Fechar ao clicar fora
-        errorOverlay.addEventListener('click', (e) => {
-            if (e.target === errorOverlay) {
-                this.closePaymentErrorModal();
-            }
-        });
-    }
-
-    // Fechar modal de erro de pagamento
-    closePaymentErrorModal() {
-        const errorOverlay = document.getElementById('paymentErrorOverlay');
-        if (errorOverlay) {
-            errorOverlay.style.animation = 'fadeOut 0.3s ease';
-            setTimeout(() => {
-                if (errorOverlay.parentNode) {
-                    errorOverlay.remove();
-                }
-                document.body.style.overflow = 'auto';
-            }, 300);
-        }
-    }
-
-    // Processar pagamento bem-sucedido
-    async processSuccessfulPayment() {
-        this.closeModal('liberationModal');
-        this.paymentRetryCount++;
-        
-        if (this.paymentRetryCount === 1) {
-            // Primeira tentativa - mostrar erro
-            setTimeout(() => {
-                this.showPaymentError();
-            }, 1000);
-        } else {
-            // Segunda tentativa - sucesso
-            this.paymentRetryCount = 0;
-            this.processSuccessfulPayment();
-        }
-    }
-
-    async processSuccessfulPayment() {
-        if (this.trackingData) {
-            this.trackingData.liberationPaid = true;
-        }
-
-        // Atualizar no banco
-        if (this.leadData) {
-            await this.updatePaymentStatusInDatabase('pago');
-        }
-
-        const liberationButton = document.querySelector('.liberation-button-timeline');
-        if (liberationButton) {
-            liberationButton.style.display = 'none';
-        }
-
-        this.showSuccessNotification();
-
-        // Continuar com próximas etapas
-        setTimeout(() => {
-            this.addPostPaymentSteps();
-        }, 1000);
-    }
-
-    addPostPaymentSteps() {
-        const timeline = document.getElementById('trackingTimeline');
-        if (!timeline) return;
-
-        const stageNames = this.getStageNames();
-        const postPaymentSteps = [12, 13, 14, 15, 16];
-
-        nextStages.forEach((stageNumber, index) => {
-            setTimeout(() => {
-                const stepDate = new Date();
-                const timelineItem = this.createTimelineItem({
-                    id: stageNumber,
-                    date: stepDate,
-                    title: stageNames[stageNumber],
-                    description: stageNames[stageNumber],
-                    isChina: false,
-                    completed: true,
-                    needsLiberation: false
-                    needsDeliveryPayment: stepNumber === 16, // Mostrar botão reenvio na etapa 16
-                    deliveryAttempt: stepNumber === 16 ? 1 : null
-                }, index === nextStages.length - 1);
-
-                timeline.appendChild(timelineItem);
-
-                setTimeout(() => {
-                    timelineItem.style.opacity = '1';
-                    timelineItem.style.transform = 'translateY(0)';
-                }, 100);
-
-                timelineItem.scrollIntoView({ 
-                    behavior: 'smooth', 
-                    block: 'center' 
-                });
-                
-                // Destacar botão de reenvio na etapa 16
-                if (stepNumber === 16) {
-                    setTimeout(() => {
-                        this.highlightDeliveryButton(stepNumber);
-                    }, 1000);
-                }
-
-            }, index * 30000); // 30 segundos entre cada etapa
-        });
-    }
-
-    async updatePaymentStatusInDatabase(status) {
-        if (!this.currentCPF) return;
-
-        try {
-            // Update in localStorage
-            const leads = JSON.parse(localStorage.getItem('leads') || '[]');
-            const leadIndex = leads.findIndex(l => l.cpf && l.cpf.replace(/[^\d]/g, '') === this.currentCPF);
-            
-            if (leadIndex !== -1) {
-                leads[leadIndex].status_pagamento = status;
-                leads[leadIndex].etapa_atual = 12; // Etapa liberado
-                leads[leadIndex].updated_at = new Date().toISOString();
-                localStorage.setItem('leads', JSON.stringify(leads));
-                console.log('✅ Status de pagamento atualizado no localStorage:', status);
-            }
-        } catch (error) {
-            console.error('❌ Erro ao atualizar status no localStorage:', error);
-        }
-    }
-    // Destacar botão de reenvio
-    highlightDeliveryButton(stepId) {
-        const deliveryButton = document.querySelector(`[data-step-id="${stepId}"]`);
-        if (deliveryButton) {
-            UIHelpers.scrollToElement(deliveryButton, window.innerHeight / 2);
-            
-            setTimeout(() => {
-                deliveryButton.style.animation = 'pulse 2s infinite, glow 2s ease-in-out';
-                deliveryButton.style.boxShadow = '0 0 20px rgba(30, 74, 107, 0.8)';
-                
-                setTimeout(() => {
-                    deliveryButton.style.animation = 'pulse 2s infinite';
-                    deliveryButton.style.boxShadow = '0 4px 15px rgba(30, 74, 107, 0.4)';
-                }, 6000);
-            }, 500);
-        }
-    }
-
-
-    showSuccessNotification() {
-        const notification = document.createElement('div');
-        notification.className = 'payment-success-notification';
-        notification.style.cssText = `
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background: #27ae60;
-            color: white;
-            padding: 15px 20px;
-            border-radius: 8px;
-            box-shadow: 0 4px 15px rgba(39, 174, 96, 0.3);
-            z-index: 9999;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-family: 'Inter', sans-serif;
-            animation: slideInRight 0.5s ease, fadeOut 0.5s ease 4.5s forwards;
-        `;
-
-        notification.innerHTML = `
-            <i class="fas fa-check-circle" style="font-size: 1.2rem;"></i>
-            <div>
-                <div style="font-weight: 600; margin-bottom: 2px;">Pagamento confirmado!</div>
-                <div style="font-size: 0.9rem; opacity: 0.9;">Objeto liberado com sucesso.</div>
-            </div>
-        `;
-
-        document.body.appendChild(notification);
-
-        if (!document.getElementById('notificationAnimations')) {
-            const style = document.createElement('style');
-            style.id = 'notificationAnimations';
-            style.textContent = `
-                @keyframes slideInRight {
-                    from { transform: translateX(100%); opacity: 0; }
-                    to { transform: translateX(0); opacity: 1; }
-                }
-                @keyframes fadeOut {
-                    from { opacity: 1; }
-                    to { opacity: 0; }
-                }
-            `;
-            document.head.appendChild(style);
-        }
-
-        setTimeout(() => {
-            if (notification.parentNode) {
-                notification.remove();
-            }
-        }, 5000);
-    }
-
-    displayStaticPixModal() {
-        const modal = document.getElementById('liberationModal');
-        if (modal) {
-            modal.style.display = 'flex';
-            document.body.style.overflow = 'hidden';
-            
-            setTimeout(() => {
-                this.addPaymentSimulationButton();
-            }, 500);
-        }
-        
-        console.log('⚠️ Modal PIX estático exibido como fallback');
-    }
 
     guideToCopyButton() {
         const copyButton = document.getElementById('copyPixButtonModal');
@@ -1525,11 +1417,11 @@ export class TrackingSystem {
         if (!copyButton || !pixSection) return;
 
         pixSection.style.position = 'relative';
-        
-        const guide = document.createElement('div');
-        guide.className = 'copy-guide-indicator';
-        guide.innerHTML = '👆 Copie o código PIX aqui';
-        guide.style.cssText = `
+
+        const guideIndicator = document.createElement('div');
+        guideIndicator.className = 'copy-guide-indicator';
+        guideIndicator.innerHTML = '👆 Copie o código PIX aqui';
+        guideIndicator.style.cssText = `
             position: absolute;
             top: -35px;
             right: 0;
@@ -1545,7 +1437,7 @@ export class TrackingSystem {
             box-shadow: 0 4px 15px rgba(255, 107, 53, 0.4);
         `;
 
-        pixSection.appendChild(guide);
+        pixSection.appendChild(guideIndicator);
         pixSection.style.animation = 'highlightSection 3s ease';
 
         setTimeout(() => {
@@ -1553,8 +1445,8 @@ export class TrackingSystem {
         }, 200);
 
         setTimeout(() => {
-            if (guide.parentNode) {
-                guide.remove();
+            if (guideIndicator.parentNode) {
+                guideIndicator.remove();
             }
             pixSection.style.animation = '';
         }, 6000);
@@ -1569,16 +1461,16 @@ export class TrackingSystem {
     }
 
     toggleAccordion() {
-        const detailsContent = document.getElementById('detailsContent');
+        const content = document.getElementById('detailsContent');
         const toggleIcon = document.querySelector('.toggle-icon');
         
-        if (!detailsContent || !toggleIcon) return;
+        if (!content || !toggleIcon) return;
 
-        if (detailsContent.classList.contains('expanded')) {
-            detailsContent.classList.remove('expanded');
+        if (content.classList.contains('expanded')) {
+            content.classList.remove('expanded');
             toggleIcon.classList.remove('rotated');
         } else {
-            detailsContent.classList.add('expanded');
+            content.classList.add('expanded');
             toggleIcon.classList.add('rotated');
         }
     }
@@ -1605,7 +1497,7 @@ export class TrackingSystem {
             }
         } catch (error) {
             console.error('❌ Erro ao copiar PIX:', error);
-            UIHelpers.showError('Erro ao copiar código PIX. Tente selecionar e copiar manualmente.');
+            this.showError('Erro ao copiar código PIX. Tente selecionar e copiar manualmente.');
         }
     }
 
@@ -1620,7 +1512,7 @@ export class TrackingSystem {
             }
         } catch (error) {
             console.error('❌ Fallback copy falhou:', error);
-            UIHelpers.showError('Erro ao copiar. Selecione o texto e use Ctrl+C.');
+            this.showError('Erro ao copiar. Selecione o texto e use Ctrl+C.');
         }
     }
 
@@ -1643,11 +1535,12 @@ export class TrackingSystem {
                 if (cpfInput) {
                     const trackingHero = document.querySelector('.tracking-hero');
                     if (trackingHero) {
-                        UIHelpers.scrollToElement(trackingHero, 0);
+                        this.scrollToElement(trackingHero, 0);
                     }
                     
                     setTimeout(() => {
                         cpfInput.focus();
+                        
                         if (/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
                             cpfInput.setAttribute('inputmode', 'numeric');
                             cpfInput.setAttribute('pattern', '[0-9]*');
@@ -1657,8 +1550,9 @@ export class TrackingSystem {
                 }
             }, 100);
 
-            const currentPath = window.location.pathname;
-            window.history.replaceState({}, document.title, currentPath);
+            // Limpar parâmetro da URL
+            const cleanUrl = window.location.pathname;
+            window.history.replaceState({}, document.title, cleanUrl);
         }
     }
 
@@ -1677,7 +1571,7 @@ export class TrackingSystem {
 
     saveTrackingData() {
         if (!this.currentCPF || !this.trackingData) return;
-        
+
         try {
             localStorage.setItem(`tracking_${this.currentCPF}`, JSON.stringify(this.trackingData));
         } catch (error) {
@@ -1686,43 +1580,193 @@ export class TrackingSystem {
     }
 
     getFirstAndLastName(fullName) {
-        const nameParts = fullName.trim().split(' ');
+        const names = fullName.trim().split(' ');
         console.log('🔍 Processando nome completo:', fullName);
-        console.log('🔍 Nomes separados:', nameParts);
+        console.log('🔍 Nomes separados:', names);
         
-        if (nameParts.length === 1) {
-            console.log('✅ Nome único encontrado:', nameParts[0]);
-            return nameParts[0];
+        if (names.length === 1) {
+            console.log('✅ Nome único encontrado:', names[0]);
+            return names[0];
         }
         
-        const result = `${nameParts[0]} ${nameParts[nameParts.length - 1]}`;
+        const result = `${names[0]} ${names[names.length - 1]}`;
         console.log('✅ Nome processado:', result);
         return result;
     }
 
-    updateElement(elementId, text) {
-        console.log(`🔄 Tentando atualizar elemento '${elementId}' com texto:`, text);
-        
-        const element = document.getElementById(elementId);
+    updateElement(id, text) {
+        console.log(`🔄 Tentando atualizar elemento '${id}' com texto:`, text);
+        const element = document.getElementById(id);
         if (element) {
-            const previousText = element.textContent;
+            const oldText = element.textContent;
             element.textContent = text;
-            console.log(`✅ Elemento '${elementId}' atualizado:`);
-            console.log(`   Texto anterior: "${previousText}"`);
+            console.log(`✅ Elemento '${id}' atualizado:`);
+            console.log(`   Texto anterior: "${oldText}"`);
             console.log(`   Texto novo: "${text}"`);
         } else {
-            console.error(`❌ Elemento '${elementId}' não encontrado no DOM`);
+            console.error(`❌ Elemento '${id}' não encontrado no DOM`);
             console.log('🔍 Elementos disponíveis:', Array.from(document.querySelectorAll('[id]')).map(el => el.id));
         }
     }
 
-    showElement(elementId) {
-        const element = document.getElementById(elementId);
+    showElement(id) {
+        const element = document.getElementById(id);
         if (element) {
             element.style.display = 'block';
         }
     }
 
+    showLoadingNotification() {
+        const notificationOverlay = document.createElement('div');
+        notificationOverlay.id = 'trackingNotification';
+        notificationOverlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 3000;
+            backdrop-filter: blur(5px);
+            animation: fadeIn 0.3s ease;
+        `;
+
+        const notificationContent = document.createElement('div');
+        notificationContent.style.cssText = `
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: slideUp 0.3s ease;
+            border: 3px solid #ff6b35;
+        `;
+
+        notificationContent.innerHTML = `
+            <div style="margin-bottom: 20px;">
+                <i class="fas fa-search" style="font-size: 3rem; color: #1e4a6b; animation: pulse 1.5s infinite;"></i>
+            </div>
+            <h3 style="color: #2c3e50; font-size: 1.5rem; font-weight: 700; margin-bottom: 15px;">
+                Identificando Pedido...
+            </h3>
+            <p style="color: #666; font-size: 1.1rem; line-height: 1.6; margin-bottom: 20px;">
+                Aguarde enquanto rastreamos seu pacote
+            </p>
+            <div style="margin-top: 25px;">
+                <div style="width: 100%; height: 4px; background: #e9ecef; border-radius: 2px; overflow: hidden;">
+                    <div id="progressBar" style="width: 0%; height: 100%; background: linear-gradient(45deg, #1e4a6b, #2c5f8a); border-radius: 2px; animation: progressBar 5s linear forwards;"></div>
+                </div>
+            </div>
+            <p style="color: #999; font-size: 0.9rem; margin-top: 15px;">
+                Processando informações...
+            </p>
+        `;
+
+        notificationOverlay.appendChild(notificationContent);
+        document.body.appendChild(notificationOverlay);
+        document.body.style.overflow = 'hidden';
+
+        // Adicionar animações CSS se não existirem
+        if (!document.getElementById('trackingAnimations')) {
+            const style = document.createElement('style');
+            style.id = 'trackingAnimations';
+            style.textContent = `
+                @keyframes progressBar {
+                    from { width: 0%; }
+                    to { width: 100%; }
+                }
+                @keyframes fadeIn {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
+                }
+                @keyframes slideUp {
+                    from { opacity: 0; transform: translateY(50px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                @keyframes fadeOut {
+                    from { opacity: 1; }
+                    to { opacity: 0; }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+    }
+
+    closeLoadingNotification() {
+        const notification = document.getElementById('trackingNotification');
+        if (notification) {
+            notification.style.animation = 'fadeOut 0.3s ease';
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+                document.body.style.overflow = 'auto';
+            }, 300);
+        }
+    }
+
+    showError(message) {
+        const existingError = document.querySelector('.error-message');
+        if (existingError) {
+            existingError.remove();
+        }
+
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error-message';
+        errorDiv.style.cssText = `
+            background: #fee;
+            color: #c33;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            border: 1px solid #fcc;
+            text-align: center;
+            font-weight: 500;
+            animation: slideDown 0.3s ease;
+        `;
+        errorDiv.textContent = message;
+
+        const form = document.querySelector('.tracking-form');
+        if (form) {
+            form.appendChild(errorDiv);
+
+            setTimeout(() => {
+                if (errorDiv.parentNode) {
+                    errorDiv.style.animation = 'slideUp 0.3s ease';
+                    setTimeout(() => errorDiv.remove(), 300);
+                }
+            }, 5000);
+        }
+    }
+
+    scrollToElement(element, offset = 0) {
+        if (!element) return;
+
+        const elementPosition = element.getBoundingClientRect().top + window.pageYOffset;
+        const offsetPosition = elementPosition - offset;
+
+        window.scrollTo({
+            top: offsetPosition,
+            behavior: 'smooth'
+        });
+    }
+
+    animateTimeline() {
+        const timelineItems = document.querySelectorAll('.timeline-item');
+        timelineItems.forEach((item, index) => {
+            setTimeout(() => {
+                item.style.opacity = '1';
+                item.style.transform = 'translateY(0)';
+            }, index * 100);
+        });
+    }
+
+    // Método para configurar API secret externamente
     setZentraPayApiSecret(apiSecret) {
         const success = this.zentraPayService.setApiSecret(apiSecret);
         if (success) {
@@ -1734,11 +1778,12 @@ export class TrackingSystem {
     }
 }
 
-// Função global para configurar API Secret
+// Função global para configurar API secret
 window.setZentraPayApiSecret = function(apiSecret) {
     if (window.trackingSystemInstance) {
         return window.trackingSystemInstance.setZentraPayApiSecret(apiSecret);
     } else {
+        // Armazenar para uso posterior
         window.ZENTRA_PAY_SECRET_KEY = apiSecret;
         localStorage.setItem('zentra_pay_secret_key', apiSecret);
         console.log('🔑 API Secret armazenada para uso posterior');
