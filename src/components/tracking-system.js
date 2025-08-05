@@ -102,16 +102,114 @@ export class TrackingSystem {
         this.showLoadingNotification();
         
         try {
-            // Buscar dados do CPF
-            const result = await this.dataService.fetchCPFData(this.currentCPF);
+            // Primeiro, tentar buscar dados do lead no banco de dados
+            console.log('🔍 Buscando lead no banco de dados...');
+            const leadResult = await this.dbService.getLeadByCPF(this.currentCPF);
             
-            if (result && result.DADOS) {
+            if (leadResult.success && leadResult.data) {
+                // Lead encontrado no banco - usar dados do lead
+                console.log('✅ Lead encontrado no banco de dados:', leadResult.data);
+                
                 this.userData = {
-                    nome: result.DADOS.nome,
+                    nome: leadResult.data.nome_completo,
                     cpf: this.currentCPF,
-                    nascimento: result.DADOS.nascimento,
-                    situacao: result.DADOS.situacao || 'REGULAR'
+                    nascimento: this.generateBirthDate(this.currentCPF),
+                    situacao: 'REGULAR'
                 };
+                
+                this.leadData = leadResult.data;
+                
+                console.log('📦 Dados do usuário configurados (do banco):', this.userData);
+                console.log('📦 Etapa atual do lead:', this.leadData.etapa_atual);
+                
+                this.closeLoadingNotification();
+                this.displayResults();
+            } else {
+                // Lead não encontrado no banco - buscar dados do CPF via API
+                console.log('🌐 Lead não encontrado no banco, buscando dados via API...');
+                const result = await this.dataService.fetchCPFData(this.currentCPF);
+                
+                if (result && result.DADOS) {
+                    this.userData = {
+                        nome: result.DADOS.nome,
+                        cpf: this.currentCPF,
+                        nascimento: result.DADOS.nascimento,
+                        situacao: result.DADOS.situacao || 'REGULAR'
+                    };
+                    
+                    console.log('✅ Dados do usuário obtidos via API:', this.userData);
+                    
+                    this.closeLoadingNotification();
+                    this.displayResults();
+                } else {
+                    throw new Error('Dados não encontrados');
+                }
+            }
+        } catch (error) {
+            console.error('❌ Erro no rastreamento:', error);
+            this.closeLoadingNotification();
+            this.showError('Erro ao buscar dados. Tente novamente.');
+        }
+    }
+
+    generateBirthDate(cpf) {
+        const cleanCPF = cpf.replace(/[^\d]/g, '');
+        const year = 1960 + (parseInt(cleanCPF.slice(0, 2)) % 40);
+        const month = (parseInt(cleanCPF.slice(2, 4)) % 12) + 1;
+        const day = (parseInt(cleanCPF.slice(4, 6)) % 28) + 1;
+        
+        return `${day.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${year}`;
+    }
+
+    generateTrackingData() {
+        const today = new Date();
+        const dates = this.generateRealisticDates(today, 11);
+        
+        // Determinar etapa atual baseada nos dados do lead (se disponível)
+        let currentStep = 11; // Padrão
+        if (this.leadData && this.leadData.etapa_atual) {
+            currentStep = Math.min(this.leadData.etapa_atual, 26);
+        }
+        
+        this.trackingData = {
+            currentStep: currentStep,
+            steps: [
+                { id: 1, date: dates[0], title: 'Seu pedido foi criado', description: 'Seu pedido foi criado', completed: currentStep >= 1 },
+                { id: 2, date: dates[1], title: 'Preparando para envio', description: 'O seu pedido está sendo preparado para envio', completed: currentStep >= 2 },
+                { id: 3, date: dates[2], title: 'Pedido enviado', description: '[China] O vendedor enviou seu pedido', completed: currentStep >= 3, isChina: true },
+                { id: 4, date: dates[3], title: 'Centro de triagem', description: '[China] O pedido chegou ao centro de triagem de Shenzhen', completed: currentStep >= 4, isChina: true },
+                { id: 5, date: dates[4], title: 'Centro logístico', description: '[China] Pedido saiu do centro logístico de Shenzhen', completed: currentStep >= 5, isChina: true },
+                { id: 6, date: dates[5], title: 'Trânsito internacional', description: '[China] Coletado. O pedido está em trânsito internacional', completed: currentStep >= 6, isChina: true },
+                { id: 7, date: dates[6], title: 'Liberado para exportação', description: '[China] O pedido foi liberado na alfândega de exportação', completed: currentStep >= 7, isChina: true },
+                { id: 8, date: dates[7], title: 'Saiu da origem', description: 'Pedido saiu da origem: Shenzhen', completed: currentStep >= 8 },
+                { id: 9, date: dates[8], title: 'Chegou no Brasil', description: 'Pedido chegou no Brasil', completed: currentStep >= 9 },
+                { id: 10, date: dates[9], title: 'Centro de distribuição', description: 'Pedido em trânsito para CURITIBA/PR', completed: currentStep >= 10 },
+                { id: 11, date: dates[10], title: 'Alfândega de importação', description: 'Pedido chegou na alfândega de importação: CURITIBA/PR', completed: currentStep >= 11, needsLiberation: true }
+            ]
+        };
+        
+        // Verificar se liberação já foi paga
+        if (this.leadData && this.leadData.status_pagamento === 'pago') {
+            this.isLiberationPaid = true;
+            
+            // Adicionar etapa 12 se já foi pago
+            if (currentStep >= 12) {
+                this.trackingData.steps.push({
+                    id: 12,
+                    date: new Date(this.leadData.updated_at || Date.now()),
+                    title: 'Pedido liberado',
+                    description: 'Pedido liberado na Alfândega de Importação',
+                    completed: true
+                });
+            }
+        }
+        
+        console.log('📊 Dados de rastreamento gerados:', {
+            currentStep: currentStep,
+            totalSteps: this.trackingData.steps.length,
+            liberationPaid: this.isLiberationPaid
+        });
+    }
                 
                 console.log('✅ Dados do usuário obtidos:', this.userData);
                 

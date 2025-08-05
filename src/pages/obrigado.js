@@ -1,11 +1,13 @@
 /**
  * Página de Obrigado - Pós-venda
  */
+import { DatabaseService } from '../services/database.js';
 import { VegaDataProcessor } from '../utils/vega-data.js';
 import { CPFValidator } from '../utils/cpf-validator.js';
 
 class ObrigadoPage {
     constructor() {
+        this.dbService = new DatabaseService();
         this.vegaData = null;
         this.init();
     }
@@ -64,21 +66,15 @@ class ObrigadoPage {
 
     async saveLeadData() {
         try {
-            // Save to localStorage instead of database
-            const leads = JSON.parse(localStorage.getItem('leads') || '[]');
-            const existingLeadIndex = leads.findIndex(lead => lead.cpf === this.vegaData.cpf);
+            // Tentar salvar no Supabase primeiro
+            const result = await this.dbService.createLead(this.vegaData);
             
-            if (existingLeadIndex !== -1) {
-                console.log('📝 Lead já existe, atualizando dados');
-                leads[existingLeadIndex] = { ...leads[existingLeadIndex], ...this.vegaData };
+            if (result.success) {
+                console.log('✅ Lead salvo com sucesso no Supabase');
             } else {
-                console.log('📝 Criando novo lead no localStorage');
-                this.vegaData.id = Date.now().toString();
-                leads.push(this.vegaData);
+                console.warn('⚠️ Erro ao salvar no Supabase, usando localStorage:', result.error);
+                // Fallback para localStorage já está implementado no DatabaseService
             }
-            
-            localStorage.setItem('leads', JSON.stringify(leads));
-            console.log('✅ Lead salvo com sucesso no localStorage');
         } catch (error) {
             console.error('❌ Erro ao salvar dados do lead:', error);
         }
