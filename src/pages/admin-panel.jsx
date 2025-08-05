@@ -841,9 +841,20 @@ class AdminPanel {
         console.log(`🔧 Executando ação do sistema: ${action}`);
         
         // Aplicar filtros primeiro para obter leads corretos
-        this.applyFilters();
+        // Para ações que afetam todos os leads, usar todos os leads
+        // Para ações que afetam selecionados, usar apenas selecionados
+        let targetLeads;
         
-        const filteredLeads = this.filteredLeads;
+        if (action === 'nextAll' || action === 'prevAll' || action === 'clearAll') {
+            // Aplicar filtros para obter leads filtrados
+            this.applyFilters();
+            targetLeads = this.filteredLeads;
+        } else {
+            // Para outras ações, usar leads selecionados
+            targetLeads = this.leads.filter(lead => 
+                this.selectedLeads.has(lead.id || lead.cpf)
+            );
+        }
         
         if (action === 'refresh') {
             this.showLoadingButton('refreshButton', 'Atualizando...');
@@ -857,18 +868,18 @@ class AdminPanel {
         }
         
         if (action === 'clearAll') {
-            if (filteredLeads.length === 0) {
+            if (targetLeads.length === 0) {
                 this.showNotification("Nenhum lead encontrado com os filtros aplicados", "error");
                 return;
             }
-            
+            if (!confirm(`Tem certeza que deseja excluir ${targetLeads.length} leads filtrados? Esta ação é irreversível.`)) {
             const confirmed = confirm(`Tem certeza que deseja excluir ${filteredLeads.length} leads filtrados? Esta ação é irreversível.`);
             if (!confirmed) return;
             
             this.showLoadingButton('clearAllButton', 'Excluindo...');
             try {
-                await this.deleteFilteredLeads(filteredLeads);
-                this.showNotification(`${filteredLeads.length} leads excluídos com sucesso!`, "success");
+                await this.deleteFilteredLeads(targetLeads);
+                this.showNotification(`${targetLeads.length} leads excluídos com sucesso!`, 'success');
             } catch (error) {
                 console.error('❌ Erro ao excluir leads:', error);
                 this.showNotification("Erro ao excluir leads: " + error.message, "error");
@@ -879,7 +890,7 @@ class AdminPanel {
         }
         
         if (action === 'nextAll' || action === 'prevAll') {
-            if (filteredLeads.length === 0) {
+            if (targetLeads.length === 0) {
                 this.showNotification("Nenhum lead encontrado com os filtros aplicados", "error");
                 return;
             }
@@ -890,7 +901,7 @@ class AdminPanel {
                 '<i class="fas fa-forward"></i> Avançar Todos' : 
                 '<i class="fas fa-backward"></i> Voltar Todos';
             
-            const confirmed = confirm(`Tem certeza que deseja ${actionText} ${filteredLeads.length} leads filtrados?`);
+            if (!confirm(`Tem certeza que deseja ${actionText} ${targetLeads.length} leads filtrados?`)) {
             if (!confirmed) return;
             
             this.showLoadingButton(buttonId, `${actionText === 'avançar' ? 'Avançando' : 'Voltando'}...`);
@@ -936,7 +947,7 @@ class AdminPanel {
                 const leadIndex = leads.findIndex(l => (l.id || l.cpf) === (filteredLead.id || filteredLead.cpf));
                 if (leadIndex !== -1) {
                     const currentStage = leads[leadIndex].etapa_atual || 1;
-                    const newStage = Math.max(1, Math.min(26, currentStage + direction));
+                    const newStage = Math.max(1, Math.min(26, currentStage + change));
                     
                     if (newStage !== currentStage) {
                         leads[leadIndex].etapa_atual = newStage;
@@ -1020,26 +1031,6 @@ class AdminPanel {
                     <td>${lead.telefone || 'N/A'}</td>
                     <td>${produtoNome}</td>
                     <td>R$ ${(lead.valor_total || 0).toFixed(2)}</td>
-                    <td>${this.formatDate(lead.created_at)}</td>
-                    <td>
-                        <span class="stage-badge ${this.getStageClass(lead.etapa_atual)}">
-                            ${lead.etapa_atual || 1}
-                        </span>
-                    </td>
-                    <td>${this.formatDate(lead.updated_at)}</td>
-                    <td>
-                        <div class="lead-actions">
-                            <button class="action-button edit" onclick="adminPanel.editLead('${lead.id || lead.cpf}')">
-                                <i class="fas fa-edit"></i>
-                            </button>
-                            <button class="action-button next" onclick="adminPanel.nextStage('${lead.id || lead.cpf}')">
-                                <i class="fas fa-forward"></i>
-                            </button>
-                            <button class="action-button prev" onclick="adminPanel.prevStage('${lead.id || lead.cpf}')">
-                                <i class="fas fa-backward"></i>
-                            </button>
-                            <button class="action-button delete" onclick="adminPanel.deleteLead('${lead.id || lead.cpf}')">
-                                <i class="fas fa-trash"></i>
                             </button>
                         </div>
                     </td>
@@ -1194,16 +1185,16 @@ class AdminPanel {
         
         switch (action) {
             case 'nextStage':
-                this.massNextStage();
+                await this.massNextStage();
                 break;
             case 'prevStage':
-                this.massPrevStage();
+                await this.massPrevStage();
                 break;
             case 'setStage':
-                this.massSetStage();
+                await this.massSetStage();
                 break;
             case 'delete':
-                this.massDeleteLeads();
+                await this.massDeleteLeads();
                 break;
             default:
                 console.warn('Ação não reconhecida:', action);
@@ -1299,13 +1290,13 @@ class AdminPanel {
             return;
         }
 
-        const stage = prompt(`Digite a etapa desejada (1-26) para ${this.selectedLeads.size} lead(s):`);
+        const stageInput = prompt(`Digite a etapa desejada (1-26) para ${this.selectedLeads.size} lead(s):`);
         const targetStage = prompt(`Digite a etapa desejada (1-16) para ${this.selectedLeads.size} lead(s):`);
         
         if (!targetStage) return; // Usuário cancelou
         
         const stageNumber = parseInt(targetStage);
-        if (isNaN(stageNumber) || stageNumber < 1 || stageNumber > 26) {
+        if (isNaN(targetStage) || targetStage < 1 || targetStage > 26) {
             this.showNotification('Etapa inválida. Digite um número entre 1 e 26.', 'error');
             return;
         }
@@ -1397,8 +1388,9 @@ class AdminPanel {
             
             this.editingLead = lead;
             this.populateEditForm(lead);
-            this.showEditModal();
-            
+                const change = action === 'nextAll' ? 1 : -1;
+                await this.updateFilteredLeadsStage(targetLeads, change);
+                this.showNotification(`${targetLeads.length} leads ${actionText === 'avançar' ? 'avançados' : 'voltados'} com sucesso!`, 'success');
         } catch (error) {
             console.error('❌ Erro ao carregar lead para edição:', error);
             this.showNotification('Erro ao carregar dados do lead', 'error');
