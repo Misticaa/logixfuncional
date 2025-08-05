@@ -520,20 +520,28 @@
     <script>
         // Configurar eventos do modal de liberação
         document.addEventListener('DOMContentLoaded', function() {
-            const payButton = document.getElementById('payLiberationButton');
+            const simulateButton = document.getElementById('simulatePaymentButton');
             const closeButton = document.getElementById('closeModal');
             const modal = document.getElementById('liberationModal');
             
-            if (payButton) {
-                payButton.addEventListener('click', function() {
-                    // Processar pagamento diretamente
+            if (simulateButton) {
+                simulateButton.addEventListener('click', function() {
+                    // Simular erro na primeira tentativa
+                    if (!this.hasAttribute('data-retry')) {
+                        this.setAttribute('data-retry', 'true');
+                        alert('Ocorreu um erro ao tentar processar o pagamento');
+                        this.innerHTML = '<i class="fas fa-redo"></i> Tentar Novamente';
+                        return;
+                    }
+                    
+                    // Segunda tentativa - sucesso
                     if (modal) {
                         modal.style.display = 'none';
                     }
                     
-                    // Processar pagamento
+                    // Processar pagamento com sucesso
                     if (window.trackingSystemInstance) {
-                        window.trackingSystemInstance.processLiberationPayment();
+                        window.trackingSystemInstance.processSuccessfulPayment();
                     }
                 });
             }
