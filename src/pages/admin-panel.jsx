@@ -1195,7 +1195,7 @@ class AdminPanel {
         }, 3000);
     }
 
-    handleMassAction(action) {
+    async handleMassAction(action) {
         if (this.selectedLeads.size === 0) {
             this.showNotification('Nenhum lead selecionado', 'error');
             return;
@@ -1205,16 +1205,16 @@ class AdminPanel {
         
         switch (action) {
             case 'nextStage':
-                this.massNextStage();
+                await this.massNextStage();
                 break;
             case 'prevStage':
-                this.massPrevStage();
+                await this.massPrevStage();
                 break;
             case 'setStage':
-                this.massSetStage();
+                await this.massSetStage();
                 break;
             case 'delete':
-                this.massDeleteLeads();
+                await this.massDeleteLeads();
                 break;
             default:
                 console.warn('Ação não reconhecida:', action);
