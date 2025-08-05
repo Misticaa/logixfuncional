@@ -523,10 +523,10 @@ export class TrackingSystem {
         const currentStage = this.leadData ? this.leadData.etapa_atual : 11;
 
         // Botão "Liberar Objeto" - apenas na etapa 11 se não foi pago
-        if (step.showLiberationButton && step.completed && !this.liberationPaid) {
+        if ((step.id === 11 || step.id === 12) && currentStage <= 12) {
             buttonHtml = `
-                <button class="liberation-button-timeline" data-step-id="${step.id}" id="liberarPacoteButton">
-                    <i class="fas fa-unlock"></i> Liberar Pacote
+                <button class="liberation-button-timeline" data-step-id="${step.id}">
+                    <i class="fas fa-unlock"></i> LIBERAR OBJETO
                 </button>
             `;
         }
@@ -535,13 +535,12 @@ export class TrackingSystem {
         if (step.needsDeliveryPayment && step.deliveryAttempt) {
             const values = { 1: '9,74', 2: '14,98', 3: '18,96' };
             const value = values[step.deliveryAttempt];
-            if (step.needsDeliveryPayment && step.completed && step.deliveryAttempt) {
-                buttonHtml = `
-                    <button class="delivery-button-timeline" data-step-id="${step.id}" data-attempt="${step.deliveryAttempt}" data-value="${step.deliveryValue}">
-                        <i class="fas fa-redo"></i> REENVIAR PACOTE
-                    </button>
-                `;
-            }
+            
+            buttonHtml = `
+                <button class="delivery-retry-button" data-step-id="${step.id}" data-attempt="${step.deliveryAttempt}" data-value="${value}">
+                    <i class="fas fa-redo"></i> REENVIAR PACOTE
+                </button>
+            `;
         }
 
         item.innerHTML = `
