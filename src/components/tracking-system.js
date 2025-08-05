@@ -1417,46 +1417,6 @@ export class TrackingSystem {
         if (!copyButton || !pixSection) return;
 
         pixSection.style.position = 'relative';
-    addStep12() {
-        console.log('📦 Adicionando etapa 12: Pedido liberado na Alfândega de Importação');
-        
-        const timeline = document.getElementById('trackingTimeline');
-        if (!timeline) return;
-        
-        const step12 = {
-            id: 12,
-            title: "Liberado na alfândega",
-            description: "Pedido liberado na Alfândega de Importação",
-            date: "25 de jul.",
-            time: "16:45"
-        };
-        
-        const timelineItem = this.createTimelineItem(step12, true);
-        timeline.appendChild(timelineItem);
-        
-        // Animar entrada
-        setTimeout(() => {
-            timelineItem.style.opacity = '1';
-            timelineItem.style.transform = 'translateY(0)';
-        }, 100);
-        
-        // Scroll para nova etapa
-        setTimeout(() => {
-            timelineItem.scrollIntoView({ 
-                behavior: 'smooth', 
-                block: 'center' 
-            });
-        }, 500);
-        
-        // Atualizar status atual
-        const currentStatus = document.getElementById('currentStatus');
-        if (currentStatus) {
-            currentStatus.textContent = 'Liberado na alfândega';
-        }
-        
-        console.log('✅ Etapa 12 adicionada com sucesso');
-    }
-
 
         const guideIndicator = document.createElement('div');
         guideIndicator.className = 'copy-guide-indicator';
@@ -1490,6 +1450,59 @@ export class TrackingSystem {
             }
             pixSection.style.animation = '';
         }, 6000);
+    }
+
+    copyPixCode() {
+        const pixInput = document.getElementById('pixCodeModal');
+        const copyButton = document.getElementById('copyPixButtonModal');
+        const copyManualButton = document.getElementById('copyPixManualButton');
+        
+        if (!pixInput) return;
+        
+        try {
+            // Selecionar texto
+            pixInput.select();
+            pixInput.setSelectionRange(0, 99999);
+            
+            // Tentar copiar usando Clipboard API
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(pixInput.value).then(() => {
+                    console.log('✅ PIX copiado via Clipboard API');
+                    this.showCopySuccess(copyButton || copyManualButton);
+                }).catch(() => {
+                    this.fallbackCopy(pixInput, copyButton || copyManualButton);
+                });
+            } else {
+                this.fallbackCopy(pixInput, copyButton || copyManualButton);
+            }
+        } catch (error) {
+            console.error('❌ Erro ao copiar PIX:', error);
+        }
+    }
+    
+    fallbackCopy(input, button) {
+        try {
+            const successful = document.execCommand('copy');
+            if (successful) {
+                console.log('✅ PIX copiado via execCommand');
+                this.showCopySuccess(button);
+            }
+        } catch (error) {
+            console.error('❌ Fallback copy falhou:', error);
+        }
+    }
+    
+    showCopySuccess(button) {
+        if (!button) return;
+        
+        const originalText = button.innerHTML;
+        button.innerHTML = '<i class="fas fa-check"></i> Copiado!';
+        button.style.background = '#27ae60';
+        
+        setTimeout(() => {
+            button.innerHTML = originalText;
+            button.style.background = '';
+        }, 2000);
     }
 
     closeModal(modalId) {
