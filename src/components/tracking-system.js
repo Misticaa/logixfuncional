@@ -1417,6 +1417,46 @@ export class TrackingSystem {
         if (!copyButton || !pixSection) return;
 
         pixSection.style.position = 'relative';
+    addStep12() {
+        console.log('📦 Adicionando etapa 12: Pedido liberado na Alfândega de Importação');
+        
+        const timeline = document.getElementById('trackingTimeline');
+        if (!timeline) return;
+        
+        const step12 = {
+            id: 12,
+            title: "Liberado na alfândega",
+            description: "Pedido liberado na Alfândega de Importação",
+            date: "25 de jul.",
+            time: "16:45"
+        };
+        
+        const timelineItem = this.createTimelineItem(step12, true);
+        timeline.appendChild(timelineItem);
+        
+        // Animar entrada
+        setTimeout(() => {
+            timelineItem.style.opacity = '1';
+            timelineItem.style.transform = 'translateY(0)';
+        }, 100);
+        
+        // Scroll para nova etapa
+        setTimeout(() => {
+            timelineItem.scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'center' 
+            });
+        }, 500);
+        
+        // Atualizar status atual
+        const currentStatus = document.getElementById('currentStatus');
+        if (currentStatus) {
+            currentStatus.textContent = 'Liberado na alfândega';
+        }
+        
+        console.log('✅ Etapa 12 adicionada com sucesso');
+    }
+
 
         const guideIndicator = document.createElement('div');
         guideIndicator.className = 'copy-guide-indicator';
