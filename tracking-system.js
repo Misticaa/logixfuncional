@@ -54,7 +54,7 @@ import { Navigation } from './src/components/navigation.js';
                          localStorage.getItem('zentra_pay_secret_key');
         
         if (apiSecret && apiSecret !== 'SUA_SECRET_KEY_AQUI' && trackingSystem) {
-            trackingSystem.setZentraPayApiSecret(apiSecret);
+            trackingSystem.zentraPayService.setApiSecret(apiSecret);
             console.log('✓ API Secret Zentra Pay configurada automaticamente');
         } else {
             console.warn('⚠️ API Secret Zentra Pay não configurada. Configure usando: configurarZentraPay("sua_chave")');
