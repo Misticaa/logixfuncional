@@ -872,9 +872,8 @@ class AdminPanel {
                 this.showNotification("Nenhum lead encontrado com os filtros aplicados", "error");
                 return;
             }
-            if (!confirm(`Tem certeza que deseja excluir ${targetLeads.length} leads filtrados? Esta ação é irreversível.`)) {
-                return;
-            }
+            const confirmed = confirm(`Tem certeza que deseja excluir ${targetLeads.length} leads filtrados? Esta ação é irreversível.`);
+            if (!confirmed) return;
             
             this.showLoadingButton('clearAllButton', 'Excluindo...');
             try {
@@ -901,9 +900,8 @@ class AdminPanel {
                 '<i class="fas fa-forward"></i> Avançar Todos' : 
                 '<i class="fas fa-backward"></i> Voltar Todos';
             
-            if (!confirm(`Tem certeza que deseja ${actionText} ${targetLeads.length} leads filtrados?`)) {
-                return;
-            }
+            const confirmed = confirm(`Tem certeza que deseja ${actionText} ${targetLeads.length} leads filtrados?`);
+            if (!confirmed) return;
             
             this.showLoadingButton(buttonId, `${actionText === 'avançar' ? 'Avançando' : 'Voltando'}...`);
             try {
@@ -1197,7 +1195,7 @@ class AdminPanel {
         }, 3000);
     }
 
-    async handleMassAction(action) {
+    handleMassAction(action) {
         if (this.selectedLeads.size === 0) {
             this.showNotification('Nenhum lead selecionado', 'error');
             return;
@@ -1207,16 +1205,16 @@ class AdminPanel {
         
         switch (action) {
             case 'nextStage':
-                await this.massNextStage();
+                this.massNextStage();
                 break;
             case 'prevStage':
-                await this.massPrevStage();
+                this.massPrevStage();
                 break;
             case 'setStage':
-                await this.massSetStage();
+                this.massSetStage();
                 break;
             case 'delete':
-                await this.massDeleteLeads();
+                this.massDeleteLeads();
                 break;
             default:
                 console.warn('Ação não reconhecida:', action);
