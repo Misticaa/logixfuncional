@@ -1040,6 +1040,16 @@ class AdminPanel {
                             </button>
                             <button class="action-button delete" onclick="adminPanel.deleteLead('${lead.id || lead.cpf}')">
                                 <i class="fas fa-trash"></i>
+                                <option value="17">17 - Liberado para nova tentativa</option>
+                                <option value="18">18 - Liberado, em trânsito</option>
+                                <option value="19">19 - Em rota de entrega</option>
+                                <option value="20">20 - Tentativa de entrega</option>
+                                <option value="21">21 - Liberado para nova tentativa</option>
+                                <option value="22">22 - Liberado, em trânsito</option>
+                                <option value="23">23 - Em rota de entrega</option>
+                                <option value="24">24 - Tentativa de entrega</option>
+                                <option value="25">25 - Liberado para nova tentativa</option>
+                                <option value="26">26 - Em rota de entrega (final)</option>
                             </button>
                         </div>
                     </td>

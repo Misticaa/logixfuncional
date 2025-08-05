@@ -1345,6 +1345,39 @@ body {
     font-size: 0.9rem;
 }
 
+.delivery-retry-button {
+    background: #1e4a6b;
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    color: white;
+    border: 1px solid rgba(30, 74, 107, 0.3);
+    padding: 12px 25px;
+    font-size: 1rem;
+    font-weight: 700;
+    border-radius: 25px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 8px 32px rgba(30, 74, 107, 0.3);
+    animation: pulse 2s infinite;
+    font-family: 'Roboto', sans-serif;
+    letter-spacing: 0.5px;
+    margin-top: 15px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.delivery-retry-button:hover {
+    background: #152e3f;
+    transform: translateY(-2px);
+    box-shadow: 0 12px 40px rgba(30, 74, 107, 0.66);
+    animation-play-state: paused;
+}
+
+.delivery-retry-button i {
+    font-size: 0.9rem;
+}
+
 /* Botão Tentativa de Entrega na Timeline */
 .delivery-button-timeline {
     background: rgba(30, 74, 107, 0.9);
