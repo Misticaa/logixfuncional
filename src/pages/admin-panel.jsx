@@ -2,7 +2,6 @@
  * Painel Administrativo - VERSÃO 16.9: COMANDO CENTRAL
  * O painel é o diretor que controla tudo via Supabase
  */
-import React, { useState, useEffect } from 'react';
 import { DatabaseService, CPFValidator } from '../services/database.js';
 
 export class AdminPanel {
