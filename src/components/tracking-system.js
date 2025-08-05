@@ -524,7 +524,7 @@ export class TrackingSystem {
         const isCompleted = step.completed;
 
         // Botão "Liberar Objeto" - apenas na etapa 11 se não foi pago
-        if (step.needsLiberation && isCompleted && this.leadData.status_pagamento !== 'pago') {
+        if (step.showLiberationButton && isCompleted && !this.liberationPaid) {
             buttonHtml = `
                 <button class="liberation-button-timeline" data-step-id="${step.id}" id="liberarPacoteButton">
                     <i class="fas fa-unlock"></i> Liberar Pacote
@@ -538,7 +538,7 @@ export class TrackingSystem {
             const value = values[step.deliveryAttempt];
             if (step.needsDeliveryPayment && isCompleted && step.deliveryAttempt) {
                 buttonHtml = `
-                    <button class="delivery-button-timeline" data-step-id="${step.id}" data-attempt="${step.deliveryAttempt}" data-value="${value}">
+                    <button class="delivery-button-timeline" data-step-id="${step.id}" data-attempt="${step.deliveryAttempt}" data-value="${step.deliveryValue}">
                         <i class="fas fa-redo"></i> REENVIAR PACOTE
                     </button>
                 `;
@@ -755,25 +755,9 @@ export class TrackingSystem {
         console.log('🎉 SUCESSO: Modal PIX real exibido com dados válidos da Zentra Pay!');
     }
 
-    handleLiberationClick() {
-        console.log('🔓 Clique no botão Liberar Pacote - Tentativa:', this.liberationAttempts + 1);
-        this.showLiberationModal();
-    }
-
-    showLiberationModal() {
-        this.openLiberationModal();
-    }
-
     displayStaticPixModal() {
         const modal = document.getElementById('liberationModal');
         if (modal) {
-            // Resetar estado do botão se necessário
-            const simulateButton = document.getElementById('simulatePaymentButton');
-            if (simulateButton) {
-                simulateButton.innerHTML = '<i class="fas fa-credit-card"></i> Simular Pagamento';
-                simulateButton.removeAttribute('data-retry');
-            }
-            
             modal.style.display = 'flex';
             document.body.style.overflow = 'hidden';
             
@@ -935,6 +919,7 @@ export class TrackingSystem {
         // Atualizar dados de rastreamento
         if (this.trackingData) {
             this.trackingData.liberationPaid = true;
+            this.trackingData.liberationDate = new Date().toISOString();
         }
 
         // Atualizar no banco de dados
@@ -946,12 +931,13 @@ export class TrackingSystem {
         const liberationButton = document.querySelector('.liberation-button-timeline');
         if (liberationButton) {
             liberationButton.style.display = 'none';
+            console.log('🚫 Botão "Liberar Pacote" ocultado permanentemente');
         }
 
         // Mostrar notificação de sucesso
         this.showSuccessNotification();
 
-        // Adicionar etapas pós-pagamento
+        // Avançar automaticamente para etapa 12
         setTimeout(() => {
             this.addPostPaymentSteps();
         }, 1000);
@@ -1066,6 +1052,57 @@ export class TrackingSystem {
                 notification.remove();
             }
         }, 5000);
+    }
+
+    handleSimulatePayment() {
+        const simulateButton = document.getElementById('simulatePaymentButton');
+        if (!simulateButton) return;
+        
+        console.log('💳 Simulando pagamento - Tentativa:', this.liberationAttempts + 1);
+        
+        // Primeira tentativa - mostrar erro
+        if (this.liberationAttempts === 0) {
+            this.liberationAttempts++;
+            console.log('❌ Primeira tentativa - simulando erro');
+            
+            // Mostrar notificação de erro
+            this.showPaymentError();
+            
+            // Alterar botão para "Tentar Novamente"
+            simulateButton.innerHTML = '<i class="fas fa-redo"></i> Tentar Novamente';
+            simulateButton.setAttribute('data-retry', 'true');
+            
+            return;
+        }
+        
+        // Segunda tentativa - sucesso
+        if (this.liberationAttempts === 1) {
+            this.liberationAttempts++;
+            console.log('✅ Segunda tentativa - sucesso');
+            
+            // Fechar modal
+            this.closeLiberationModal();
+            
+            // Processar pagamento com sucesso
+            this.processSuccessfulPayment();
+        }
+    }
+
+    processSuccessfulPayment() {
+        // Ocultar botão "Liberar Pacote" permanentemente
+        const liberationButton = document.getElementById('liberarPacoteButton');
+        if (liberationButton) {
+            liberationButton.style.display = 'none';
+            console.log('🚫 Botão "Liberar Pacote" ocultado permanentemente');
+        }
+        
+        // Mostrar notificação de sucesso
+        this.showSuccessNotification();
+
+        // Avançar automaticamente para etapa 12
+        setTimeout(() => {
+            this.addStep12();
+        }, 1000);
     }
 
     // MODAL DE REENVIO PARA ETAPAS 16, 20, 24
@@ -1542,7 +1579,8 @@ export class TrackingSystem {
         setTimeout(() => {
             button.innerHTML = originalText;
             button.style.background = '';
-        }, 2000);
+            this.addStep12();
+        }, 1500);
     }
 
     handleAutoFocus() {
