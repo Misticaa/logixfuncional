@@ -932,6 +932,21 @@
                         </p>
                     </div>
                     
+                    <!-- Botão de Sincronização Centralizada -->
+                    <div class="sync-section" style="background: #e3f2fd; padding: 20px; border-radius: 12px; margin-bottom: 20px; border: 2px solid #1976d2;">
+                        <h4 style="color: #1976d2; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
+                            <i class="fas fa-sync-alt"></i> Sincronização Centralizada
+                        </h4>
+                        <p style="color: #666; margin-bottom: 15px; font-size: 0.9rem;">
+                            O painel é o centro de controle. Use este botão para sincronizar todos os dados com o Supabase e garantir que o rastreamento funcione universalmente.
+                        </p>
+                        <button id="syncAllToSupabaseButton" class="mass-action-button" style="background: #1976d2; color: white; width: 100%;">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                            <div class="action-text">Sincronizar com Supabase</div>
+                            <div class="action-count" id="syncCount">(todos os leads)</div>
+                        </button>
+                    </div>
+                    
                     <div class="mass-actions-grid" style="
                         display: grid;
                         grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));

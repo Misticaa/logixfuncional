@@ -1551,6 +1551,59 @@ class AdminPanel {
             }
         }
     }
+
+    async handleSyncAllToSupabase() {
+        console.log('🔄 Iniciando sincronização centralizada com Supabase...');
+        
+        const syncButton = document.getElementById('syncAllToSupabaseButton');
+        if (!syncButton) return;
+        
+        // Mostrar loading
+        const originalText = syncButton.innerHTML;
+        syncButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sincronizando...';
+        syncButton.disabled = true;
+        
+        try {
+            // Sincronizar todos os leads do painel para o Supabase
+            const results = await this.dbService.syncAllLeadsToSupabase();
+            
+            console.log('📊 Resultados da sincronização:', results);
+            
+            // Mostrar resultados
+            if (results.success > 0) {
+                this.showNotification(
+                    `✅ Sincronização concluída! ${results.success} leads sincronizados com sucesso.`,
+                    'success'
+                );
+                
+                if (results.errors > 0) {
+                    this.showNotification(
+                        `⚠️ ${results.errors} leads tiveram erro na sincronização.`,
+                        'warning'
+                    );
+                }
+            } else {
+                this.showNotification(
+                    '❌ Nenhum lead foi sincronizado. Verifique a conexão com Supabase.',
+                    'error'
+                );
+            }
+            
+            // Atualizar contador
+            const syncCount = document.getElementById('syncCount');
+            if (syncCount) {
+                syncCount.textContent = `(${results.success} sincronizados)`;
+            }
+            
+        } catch (error) {
+            console.error('❌ Erro na sincronização:', error);
+            this.showNotification('Erro na sincronização: ' + error.message, 'error');
+        } finally {
+            // Restaurar botão
+            syncButton.innerHTML = originalText;
+            syncButton.disabled = false;
+        }
+    }
 }
 
 // Initialize admin panel when DOM is ready

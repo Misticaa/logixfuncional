@@ -637,9 +637,17 @@ export class TrackingSystem {
         
         // 💾 Atualizar no Supabase
         if (this.currentCPF) {
+            // 🎯 PAINEL CENTRALIZADO: Atualizar no painel (localStorage)
             this.dbService.updatePaymentStatus(this.currentCPF, 'pago');
             this.dbService.updateLeadStage(this.currentCPF, 12);
-            console.log('💾 Status atualizado no Supabase: pago, etapa 12');
+            console.log('💾 Status atualizado no painel: pago, etapa 12');
+            
+            // 🔄 Sincronizar com Supabase após atualização
+            const leadData = await this.dbService.getLeadFromLocalStorage(this.currentCPF);
+            if (leadData.success && leadData.data) {
+                await this.dbService.syncLeadToSupabase(leadData.data);
+                console.log('🔄 Lead sincronizado com Supabase após pagamento');
+            }
         }
     }
 
