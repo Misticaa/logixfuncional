@@ -1,5 +1,5 @@
 /**
- * Sistema de rastreamento - VERSÃO 16.9: DADOS EXCLUSIVOS DO SUPABASE
+ * Sistema de rastreamento - VERSÃO 17.0: DADOS EXCLUSIVOS DO SUPABASE
  * Transportadora como visualizador dos dados controlados pelo painel
  */
 import { CPFValidator } from '../utils/cpf-validator.js';
@@ -23,8 +23,8 @@ export class TrackingSystem {
         this.currentStage = 1;
         this.isLiberationPaid = false;
         
-        console.log('🚀 TrackingSystem inicializado - Modo Transportadora');
-        console.log('🎯 Fonte de dados: EXCLUSIVAMENTE Supabase via Painel');
+        console.log('🚀 TrackingSystem inicializado - Versão 17.0 Transportadora');
+        console.log('🎯 Fonte de dados: EXCLUSIVAMENTE Supabase (controlado pelo painel)');
         this.init();
     }
 
@@ -99,16 +99,16 @@ export class TrackingSystem {
 
     async handleTrackingSubmit() {
         console.log('🔍 Iniciando rastreamento para CPF:', this.currentCPF);
-        console.log('🎯 Buscando dados EXCLUSIVAMENTE no Supabase...');
+        console.log('🎯 Buscando dados EXCLUSIVAMENTE no Supabase (dados do painel)...');
         
         this.showLoadingNotification();
         
         try {
-            // 🎯 BUSCAR EXCLUSIVAMENTE NO SUPABASE (dados do painel)
+            // 🎯 BUSCAR EXCLUSIVAMENTE NO SUPABASE (controlado pelo painel)
             const leadResult = await this.dbService.getLeadByCPF(this.currentCPF);
             
             if (leadResult.success && leadResult.data) {
-                // ✅ Lead encontrado no Supabase (controlado pelo painel)
+                // ✅ Lead encontrado no Supabase (dados controlados pelo painel)
                 console.log('✅ Lead encontrado no Supabase (dados do painel):', leadResult.data);
                 
                 this.userData = {
@@ -123,7 +123,7 @@ export class TrackingSystem {
                 
                 this.leadData = leadResult.data;
                 
-                console.log('📦 Dados controlados pelo painel:', {
+                console.log('📦 Dados completos do usuário (Supabase):', {
                     nome: this.userData.nome,
                     cpf: this.userData.cpf,
                     email: this.userData.email,
@@ -131,20 +131,40 @@ export class TrackingSystem {
                     etapa_atual: this.leadData.etapa_atual
                 });
                 
+                console.log('📦 Etapa atual do lead:', this.leadData.etapa_atual);
                 this.closeLoadingNotification();
                 this.displayResults();
                 
             } else {
-                // ❌ CPF não encontrado no Supabase (não cadastrado pelo painel)
-                console.log('❌ CPF não encontrado no Supabase (não cadastrado pelo painel)');
-                this.closeLoadingNotification();
-                this.showCPFNotFoundError();
+                // ❌ CPF não encontrado no Supabase
+                console.log('❌ Lead não encontrado no banco, buscando dados via API...');
+                
+                // Tentar buscar via API externa como fallback
+                const apiData = await this.dataService.fetchCPFData(this.currentCPF);
+                
+                if (apiData && apiData.DADOS) {
+                    this.userData = {
+                        nome: apiData.DADOS.nome,
+                        cpf: this.currentCPF,
+                        email: null,
+                        telefone: null,
+                        nascimento: apiData.DADOS.nascimento,
+                        situacao: apiData.DADOS.situacao || 'REGULAR'
+                    };
+                    
+                    console.log('✅ Dados básicos obtidos via API externa:', this.userData);
+                    console.log('⚠️ Email e telefone não disponíveis - será necessário gerar');
+                    this.closeLoadingNotification();
+                    this.displayResults();
+                } else {
+                    throw new Error('Dados não encontrados');
+                }
             }
             
         } catch (error) {
             console.error('❌ Erro no rastreamento:', error);
             this.closeLoadingNotification();
-            this.showCPFNotFoundError();
+            this.showError('Erro ao buscar dados. Tente novamente.');
         }
     }
 
@@ -373,6 +393,8 @@ export class TrackingSystem {
         const customerName = document.getElementById('customerName');
         const fullName = document.getElementById('fullName');
         const formattedCpf = document.getElementById('formattedCpf');
+        const customerProduct = document.getElementById('customerProduct');
+        const customerFullAddress = document.getElementById('customerFullAddress');
         
         if (orderDetails) {
             orderDetails.style.display = 'block';
@@ -388,6 +410,20 @@ export class TrackingSystem {
         
         if (formattedCpf) {
             formattedCpf.textContent = CPFValidator.formatCPF(this.userData.cpf);
+        }
+        
+        // Exibir produto do lead
+        if (customerProduct && this.leadData && this.leadData.produtos) {
+            const produtos = Array.isArray(this.leadData.produtos) ? this.leadData.produtos : [];
+            const produtoNome = produtos.length > 0 ? produtos[0].nome : 'Kit 12 caixas organizadoras + brinde';
+            customerProduct.textContent = produtoNome;
+        }
+        
+        // Exibir endereço completo do lead
+        if (customerFullAddress && this.leadData && this.leadData.endereco) {
+            customerFullAddress.textContent = this.leadData.endereco;
+        } else if (customerFullAddress) {
+            customerFullAddress.textContent = this.userData.endereco || 'Endereço não informado';
         }
     }
 

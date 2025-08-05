@@ -1,6 +1,6 @@
 /**
  * Serviço de banco de dados - Integração Supabase EXCLUSIVA
- * VERSÃO 16.9: PAINEL CENTRALIZADO - SUPABASE COMO FONTE ÚNICA
+ * VERSÃO 17.0: PAINEL CENTRALIZADO - SUPABASE COMO FONTE ÚNICA
  */
 import { createClient } from '@supabase/supabase-js';
 
@@ -8,7 +8,7 @@ export class DatabaseService {
     constructor() {
         this.supabase = this.initializeSupabase();
         this.isAdmin = this.checkIfAdmin();
-        console.log('🗄️ DatabaseService inicializado - Modo Centralizado Supabase');
+        console.log('🗄️ DatabaseService inicializado - Versão 17.0 Centralizada');
         console.log('👤 Modo:', this.isAdmin ? 'PAINEL ADMIN' : 'TRANSPORTADORA');
     }
 
@@ -327,6 +327,47 @@ export class DatabaseService {
             
         } catch (error) {
             console.error('❌ Erro no teste de conexão:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    async getLeadsByStage() {
+        if (!this.supabase) {
+            console.error('❌ Supabase não disponível');
+            return { success: false, error: 'Supabase não configurado' };
+        }
+
+        try {
+            console.log('📊 Contando leads por etapa no Supabase...');
+            
+            const { data, error } = await this.supabase
+                .from('leads')
+                .select('etapa_atual')
+                .order('etapa_atual');
+            
+            if (error) {
+                console.error('❌ Erro ao contar leads por etapa:', error);
+                return { success: false, error: error.message };
+            }
+            
+            // Contar leads por etapa
+            const stageCount = {};
+            for (let i = 1; i <= 26; i++) {
+                stageCount[i] = 0;
+            }
+            
+            data.forEach(lead => {
+                const stage = lead.etapa_atual || 1;
+                if (stage >= 1 && stage <= 26) {
+                    stageCount[stage]++;
+                }
+            });
+            
+            console.log('✅ Contagem por etapa:', stageCount);
+            return { success: true, data: stageCount };
+            
+        } catch (error) {
+            console.error('❌ Erro na contagem por etapa:', error);
             return { success: false, error: error.message };
         }
     }
