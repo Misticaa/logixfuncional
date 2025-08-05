@@ -936,7 +936,7 @@ class AdminPanel {
                 const leadIndex = leads.findIndex(l => (l.id || l.cpf) === (filteredLead.id || filteredLead.cpf));
                 if (leadIndex !== -1) {
                     const currentStage = leads[leadIndex].etapa_atual || 1;
-                    const newStage = Math.max(1, Math.min(16, currentStage + increment));
+                    const newStage = Math.max(1, Math.min(26, currentStage + direction));
                     
                     if (newStage !== currentStage) {
                         leads[leadIndex].etapa_atual = newStage;
@@ -1038,28 +1038,8 @@ class AdminPanel {
                             <button class="action-button prev" onclick="adminPanel.prevStage('${lead.id || lead.cpf}')">
                                 <i class="fas fa-backward"></i>
                             </button>
-                            <button class="action-button delete" onclick="adminPanel.deleteLead('${lead.id || lead.cpf}')" style="display: none;">
+                            <button class="action-button delete" onclick="adminPanel.deleteLead('${lead.id || lead.cpf}')">
                                 <i class="fas fa-trash"></i>
-                                <option value="17">17 - Liberado para nova tentativa</option>
-                                <option value="18">18 - Liberado, em trânsito</option>
-                                <option value="19">19 - Em rota de entrega</option>
-                                <option value="20">20 - Tentativa de entrega</option>
-                                <option value="21">21 - Liberado para nova tentativa</option>
-                                <option value="22">22 - Liberado, em trânsito</option>
-                                <option value="23">23 - Em rota de entrega</option>
-                                <option value="24">24 - Tentativa de entrega</option>
-                                <option value="25">25 - Liberado para nova tentativa</option>
-                                <option value="26">26 - Em rota de entrega (final)</option>
-                                <option value="17">17 - Liberado para nova tentativa</option>
-                                <option value="18">18 - Liberado, em trânsito</option>
-                                <option value="19">19 - Em rota de entrega</option>
-                                <option value="20">20 - Tentativa de entrega</option>
-                                <option value="21">21 - Liberado para nova tentativa</option>
-                                <option value="22">22 - Liberado, em trânsito</option>
-                                <option value="23">23 - Em rota de entrega</option>
-                                <option value="24">24 - Tentativa de entrega</option>
-                                <option value="25">25 - Liberado para nova tentativa</option>
-                                <option value="26">26 - Em rota de entrega (final)</option>
                             </button>
                         </div>
                     </td>
@@ -1247,7 +1227,7 @@ class AdminPanel {
             this.selectedLeads.forEach(leadId => {
                 const leadIndex = leads.findIndex(l => (l.id || l.cpf) === leadId);
                 if (leadIndex !== -1) {
-                    const currentStage = leads[leadIndex].etapa_atual || 1;
+                    const newStage = Math.min(26, currentStage + 1);
                     const newStage = Math.min(16, currentStage + 1); // Máximo 16
                     
                     leads[leadIndex].etapa_atual = newStage;
@@ -1320,14 +1300,14 @@ class AdminPanel {
             return;
         }
 
-        // Solicitar a etapa desejada
+        const stage = prompt(`Digite a etapa desejada (1-26) para ${this.selectedLeads.size} lead(s):`);
         const targetStage = prompt(`Digite a etapa desejada (1-16) para ${this.selectedLeads.size} lead(s):`);
         
         if (!targetStage) return; // Usuário cancelou
         
         const stageNumber = parseInt(targetStage);
-        if (isNaN(stageNumber) || stageNumber < 1 || stageNumber > 16) {
-            this.showNotification('Etapa inválida. Digite um número entre 1 e 16.', 'error');
+        if (isNaN(stageNumber) || stageNumber < 1 || stageNumber > 26) {
+            this.showNotification('Etapa inválida. Digite um número entre 1 e 26.', 'error');
             return;
         }
 
