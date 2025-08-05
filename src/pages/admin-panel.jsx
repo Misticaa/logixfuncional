@@ -1038,8 +1038,18 @@ class AdminPanel {
                             <button class="action-button prev" onclick="adminPanel.prevStage('${lead.id || lead.cpf}')">
                                 <i class="fas fa-backward"></i>
                             </button>
-                            <button class="action-button delete" onclick="adminPanel.deleteLead('${lead.id || lead.cpf}')">
+                            <button class="action-button delete" onclick="adminPanel.deleteLead('${lead.id || lead.cpf}')" style="display: none;">
                                 <i class="fas fa-trash"></i>
+                                <option value="17">17 - Liberado para nova tentativa</option>
+                                <option value="18">18 - Liberado, em trânsito</option>
+                                <option value="19">19 - Em rota de entrega</option>
+                                <option value="20">20 - Tentativa de entrega</option>
+                                <option value="21">21 - Liberado para nova tentativa</option>
+                                <option value="22">22 - Liberado, em trânsito</option>
+                                <option value="23">23 - Em rota de entrega</option>
+                                <option value="24">24 - Tentativa de entrega</option>
+                                <option value="25">25 - Liberado para nova tentativa</option>
+                                <option value="26">26 - Em rota de entrega (final)</option>
                                 <option value="17">17 - Liberado para nova tentativa</option>
                                 <option value="18">18 - Liberado, em trânsito</option>
                                 <option value="19">19 - Em rota de entrega</option>
@@ -1151,7 +1161,7 @@ class AdminPanel {
     }
 
     getStageClass(stage) {
-        if (stage >= 12) return 'completed';
+        if (stage >= 26) return 'completed';
         if (stage >= 6) return 'pending';
         return '';
     }
@@ -1512,7 +1522,7 @@ class AdminPanel {
             
             if (leadIndex !== -1) {
                 const currentStage = leads[leadIndex].etapa_atual || 1;
-                const newStage = Math.max(1, Math.min(16, currentStage + direction));
+                const newStage = Math.max(1, Math.min(26, currentStage + direction));
                 
                 leads[leadIndex].etapa_atual = newStage;
                 leads[leadIndex].updated_at = new Date().toISOString();
