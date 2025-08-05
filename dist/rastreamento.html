@@ -169,12 +169,12 @@
             }
         }
     </style>
-  <script type="module" crossorigin src="/assets/tracking-rYgRnlk3.js"></script>
+  <script type="module" crossorigin src="/assets/tracking-iOCFpwlA.js"></script>
   <link rel="modulepreload" crossorigin href="/assets/modulepreload-polyfill-B5Qt9EMX.js">
-  <link rel="modulepreload" crossorigin href="/assets/database-CTJo1PQf.js">
   <link rel="modulepreload" crossorigin href="/assets/cpf-validator-B4PsRAE6.js">
+  <link rel="modulepreload" crossorigin href="/assets/database-CTJo1PQf.js">
   <link rel="modulepreload" crossorigin href="/assets/navigation-BwbyOJod.js">
-  <link rel="stylesheet" crossorigin href="/assets/style-DzEJbf0V.css">
+  <link rel="stylesheet" crossorigin href="/assets/style-D4r1-SUb.css">
 </head>
 <body>
     <!-- Order Confirmation Popup -->
@@ -338,6 +338,29 @@
                     <div class="fee-info">
                         <span class="fee-label">Taxa de Liberação Aduaneira</span>
                         <span class="fee-amount">R$ 26,34</span>
+                    </div>
+                </div>
+                
+                <!-- QR Code gerado automaticamente -->
+                <div class="qr-code-section" style="text-align: center; margin: 20px 0;">
+                    <img id="realPixQrCode" src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=00020126580014BR.GOV.BCB.PIX013636c4b4e4-4c4e-4c4e-4c4e-4c4e4c4e4c4e5204000053039865802BR5925LOGIX EXPRESS LTDA6009SAO PAULO62070503***6304A1B2" alt="QR Code PIX" style="width: 200px; height: 200px; border: 3px solid #1e4a6b; border-radius: 12px; padding: 10px; background: white;">
+                </div>
+                
+                <!-- Botão Copiar Chave Pix com animação -->
+                <div style="text-align: center; margin: 20px 0;">
+                    <button id="copyPixButtonModal" class="liberation-button-timeline" style="animation: pulse 2s infinite;">
+                        <i class="fas fa-copy"></i> Copiar Chave Pix
+                    </button>
+                </div>
+                
+                <!-- Campo com chave PIX e botão manual -->
+                <div style="margin: 20px 0;">
+                    <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #495057;">PIX Copia e Cola:</label>
+                    <div style="display: flex; gap: 10px;">
+                        <textarea id="pixCodeModal" readonly style="flex: 1; padding: 12px; border: 2px solid #e9ecef; border-radius: 8px; font-size: 12px; background: #f8f9fa; color: #495057; resize: none; height: 80px;">00020126580014BR.GOV.BCB.PIX013636c4b4e4-4c4e-4c4e-4c4e-4c4e4c4e4c4e5204000053039865802BR5925LOGIX EXPRESS LTDA6009SAO PAULO62070503***6304A1B2</textarea>
+                        <button id="copyPixManualButton" style="background: #6c757d; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; white-space: nowrap;">
+                            <i class="fas fa-copy"></i> Copiar
+                        </button>
                     </div>
                 </div>
                 
