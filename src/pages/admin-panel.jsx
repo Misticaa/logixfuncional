@@ -1,11 +1,11 @@
 /**
- * Painel Administrativo - Sistema de Gerenciamento de Leads
+ * Painel Administrativo - VERSÃO 16.9: COMANDO CENTRAL
+ * O painel é o diretor que controla tudo via Supabase
  */
+import React, { useState, useEffect } from 'react';
+import { DatabaseService, CPFValidator } from '../services/database.js';
 
-import { CPFValidator } from '../utils/cpf-validator.js';
-import { DatabaseService } from '../services/database.js';
-
-class AdminPanel {
+export class AdminPanel {
     constructor() {
         this.dbService = new DatabaseService();
         this.leads = [];
@@ -14,48 +14,59 @@ class AdminPanel {
         this.currentPage = 1;
         this.leadsPerPage = 20;
         this.isLoggedIn = false;
-        this.systemMode = 'auto';
-        this.bulkData = [];
-        this.bulkResults = null;
         this.editingLead = null;
+        this.isSyncing = false;
         
-        console.log('🔧 AdminPanel inicializado - Modo Local');
+        console.log('🎯 AdminPanel inicializado - COMANDO CENTRAL');
+        console.log('🗄️ Fonte de dados: EXCLUSIVAMENTE Supabase');
         this.init();
     }
 
     async init() {
-        console.log('🚀 Inicializando painel administrativo...');
+        console.log('🚀 Inicializando painel de comando central...');
         
         try {
             this.setupEventListeners();
             this.checkLoginStatus();
             
             if (this.isLoggedIn) {
-                this.loadLeads();
+                await this.loadLeadsFromSupabase();
                 this.renderLeadsTable();
                 this.updateLeadsCount();
+                await this.testSupabaseConnection();
             }
             
-            console.log('✅ Painel administrativo inicializado com sucesso');
+            console.log('✅ Painel de comando central inicializado com sucesso');
         } catch (error) {
             console.error('❌ Erro na inicialização do painel:', error);
         }
     }
 
+    async testSupabaseConnection() {
+        console.log('🔍 Testando conexão com Supabase...');
+        
+        const result = await this.dbService.testConnection();
+        
+        if (result.success) {
+            this.showNotification('✅ Conexão com Supabase estabelecida', 'success');
+            console.log('✅ Supabase conectado e funcionando');
+        } else {
+            this.showNotification('❌ Erro na conexão com Supabase: ' + result.error, 'error');
+            console.error('❌ Falha na conexão com Supabase:', result.error);
+        }
+    }
+
     setupEventListeners() {
-        // Login
         const loginForm = document.getElementById('loginForm');
         if (loginForm) {
             loginForm.addEventListener('submit', (e) => this.handleLogin(e));
         }
 
-        // Logout
         const logoutButton = document.getElementById('logoutButton');
         if (logoutButton) {
             logoutButton.addEventListener('click', () => this.handleLogout());
         }
 
-        // Navigation
         const showLeadsView = document.getElementById('showLeadsView');
         if (showLeadsView) {
             showLeadsView.addEventListener('click', () => this.showView('leadsView'));
@@ -71,35 +82,17 @@ class AdminPanel {
             showBulkAddView.addEventListener('click', () => this.showView('bulkAddView'));
         }
 
-        // Add Lead Form
         const addLeadForm = document.getElementById('addLeadForm');
         if (addLeadForm) {
             addLeadForm.addEventListener('submit', (e) => this.handleAddLead(e));
         }
 
-        // Bulk Import
-        const previewButton = document.getElementById('previewBulkDataButton');
-        if (previewButton) {
-            previewButton.addEventListener('click', () => this.previewBulkData());
+        const syncSupabaseButton = document.getElementById('syncSupabaseButton');
+        if (syncSupabaseButton) {
+            syncSupabaseButton.addEventListener('click', () => this.forceSyncWithSupabase());
         }
 
-        const clearButton = document.getElementById('clearBulkDataButton');
-        if (clearButton) {
-            clearButton.addEventListener('click', () => this.clearBulkData());
-        }
-
-        const confirmButton = document.getElementById('confirmBulkImportButton');
-        if (confirmButton) {
-            confirmButton.addEventListener('click', () => this.confirmBulkImport());
-        }
-
-        const editButton = document.getElementById('editBulkDataButton');
-        if (editButton) {
-            editButton.addEventListener('click', () => this.editBulkData());
-        }
-
-        // Controls
-        let refreshButton = document.getElementById('refreshButton');
+        const refreshButton = document.getElementById('refreshButton');
         if (refreshButton) {
             refreshButton.addEventListener('click', () => this.refreshLeads());
         }
@@ -109,7 +102,7 @@ class AdminPanel {
             applyFiltersButton.addEventListener('click', () => this.applyFilters());
         }
 
-        // Mass Actions
+        // Ações em massa
         const massNextStage = document.getElementById('massNextStage');
         if (massNextStage) {
             massNextStage.addEventListener('click', () => this.handleMassAction('nextStage'));
@@ -129,48 +122,10 @@ class AdminPanel {
         if (massDeleteLeads) {
             massDeleteLeads.addEventListener('click', () => this.handleMassAction('delete'));
         }
-
-        // Botões de controle do sistema
-        const nextAllButton = document.getElementById('nextAllButton');
-        if (nextAllButton) {
-            nextAllButton.addEventListener('click', () => this.handleSystemAction('nextAll'));
-        }
-
-        const prevAllButton = document.getElementById('prevAllButton');
-        if (prevAllButton) {
-            prevAllButton.addEventListener('click', () => this.handleSystemAction('prevAll'));
-        }
-
-        refreshButton = document.getElementById('refreshButton');
-        if (refreshButton) {
-            refreshButton.addEventListener('click', () => this.handleSystemAction('refresh'));
-        }
-
-        const clearAllButton = document.getElementById('clearAllButton');
-        if (clearAllButton) {
-            clearAllButton.addEventListener('click', () => this.handleSystemAction('clearAll'));
-        }
-
-        // Edit Modal Events
-        const closeEditModal = document.getElementById('closeEditModal');
-        if (closeEditModal) {
-            closeEditModal.addEventListener('click', () => this.closeEditModal());
-        }
-
-        const cancelEdit = document.getElementById('cancelEdit');
-        if (cancelEdit) {
-            cancelEdit.addEventListener('click', () => this.closeEditModal());
-        }
-
-        const editForm = document.getElementById('editForm');
-        if (editForm) {
-            editForm.addEventListener('submit', (e) => this.handleEditSubmit(e));
-        }
-
     }
 
     checkLoginStatus() {
-        const isLoggedIn = localStorage.getItem('admin_logged_in') === 'true';
+        const isLoggedIn = sessionStorage.getItem('admin_logged_in') === 'true';
         
         if (isLoggedIn) {
             this.isLoggedIn = true;
@@ -183,16 +138,15 @@ class AdminPanel {
     handleLogin(e) {
         e.preventDefault();
         
-        // Allow access without password validation
         this.isLoggedIn = true;
-        localStorage.setItem('admin_logged_in', 'true');
+        sessionStorage.setItem('admin_logged_in', 'true');
         this.showAdminPanel();
-        this.loadLeads();
+        this.loadLeadsFromSupabase();
     }
 
     handleLogout() {
         this.isLoggedIn = false;
-        localStorage.removeItem('admin_logged_in');
+        sessionStorage.removeItem('admin_logged_in');
         this.showLoginScreen();
     }
 
@@ -214,789 +168,161 @@ class AdminPanel {
         this.showView('leadsView');
     }
 
-    showView(viewId) {
-        // Hide all views
-        const views = document.querySelectorAll('.admin-view');
-        views.forEach(view => {
+    showView(viewName) {
+        document.querySelectorAll('.admin-view').forEach(view => {
             view.style.display = 'none';
         });
-
-        // Remove active class from all nav buttons
-        const navButtons = document.querySelectorAll('.nav-button');
-        navButtons.forEach(button => {
+        
+        document.querySelectorAll('.nav-button').forEach(button => {
             button.classList.remove('active');
         });
 
-        // Show selected view
-        const targetView = document.getElementById(viewId);
+        const targetView = document.getElementById(viewName);
         if (targetView) {
             targetView.style.display = 'block';
         }
 
-        // Add active class to corresponding nav button
-        const activeButton = document.getElementById(`show${viewId.charAt(0).toUpperCase() + viewId.slice(1)}`);
-        if (activeButton) {
-            activeButton.classList.add('active');
+        const targetButton = document.getElementById(`show${viewName.charAt(0).toUpperCase() + viewName.slice(1)}`);
+        if (targetButton) {
+            targetButton.classList.add('active');
         }
     }
 
-    loadLeads() {
+    async loadLeadsFromSupabase() {
         try {
-            console.log('📊 Carregando leads do localStorage...');
-            const storedLeads = localStorage.getItem('leads');
-            this.leads = storedLeads ? JSON.parse(storedLeads) : [];
-            this.filteredLeads = [...this.leads];
-            console.log(`📦 ${this.leads.length} leads carregados do localStorage`);
-            this.renderLeadsTable();
-            this.updateLeadsCount();
+            console.log('📊 Carregando leads do Supabase...');
+            this.showLoadingIndicator();
+            
+            const result = await this.dbService.getAllLeads();
+            
+            if (result.success) {
+                this.leads = result.data || [];
+                this.filteredLeads = [...this.leads];
+                console.log(`📦 ${this.leads.length} leads carregados do Supabase`);
+                
+                this.renderLeadsTable();
+                this.updateLeadsCount();
+                this.showNotification(`${this.leads.length} leads carregados do Supabase`, 'success');
+            } else {
+                console.error('❌ Erro ao carregar leads do Supabase:', result.error);
+                this.leads = [];
+                this.filteredLeads = [];
+                this.showNotification('Erro ao carregar leads: ' + result.error, 'error');
+            }
+            
         } catch (error) {
-            console.error('❌ Erro ao carregar leads do localStorage:', error);
+            console.error('❌ Erro ao carregar leads:', error);
             this.leads = [];
             this.filteredLeads = [];
-            this.renderLeadsTable();
-            this.updateLeadsCount();
+            this.showNotification('Erro ao carregar leads: ' + error.message, 'error');
+        } finally {
+            this.hideLoadingIndicator();
         }
     }
 
-    handleAddLead(e) {
+    async handleAddLead(e) {
         e.preventDefault();
         
         const formData = new FormData(e.target);
         const leadData = {
-            nome_completo: formData.get('nome') || document.getElementById('addLeadNome')?.value,
-            cpf: (formData.get('cpf') || document.getElementById('addLeadCPF')?.value)?.replace(/[^\d]/g, ''),
-            email: formData.get('email') || document.getElementById('addLeadEmail')?.value,
-            telefone: formData.get('telefone') || document.getElementById('addLeadTelefone')?.value,
+            nome_completo: formData.get('nome'),
+            cpf: formData.get('cpf').replace(/[^\d]/g, ''),
+            email: formData.get('email'),
+            telefone: formData.get('telefone'),
             endereco: this.buildAddress(formData),
             produtos: [{
-                nome: formData.get('produto') || document.getElementById('addLeadProduto')?.value || 'Kit 12 caixas organizadoras + brinde',
-                preco: parseFloat(formData.get('valor') || document.getElementById('addLeadValor')?.value || 0)
+                nome: formData.get('produto') || 'Kit 12 caixas organizadoras + brinde',
+                preco: parseFloat(formData.get('valor') || 0)
             }],
-            valor_total: parseFloat(formData.get('valor') || document.getElementById('addLeadValor')?.value || 0),
+            valor_total: parseFloat(formData.get('valor') || 0),
             meio_pagamento: 'PIX',
             origem: 'direto',
             etapa_atual: 1,
             status_pagamento: 'pendente',
             order_bumps: [],
-            data_compra: new Date().toISOString(),
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
+            data_compra: new Date().toISOString()
         };
 
-        // Save to localStorage
-        this.saveLeadToLocalStorage(leadData);
-        this.loadLeads();
-        this.showView('leadsView');
-        e.target.reset();
-        this.showNotification('Lead criado com sucesso!', 'success');
-    }
-
-    saveLeadToLocalStorage(leadData) {
+        console.log('📝 Criando lead via painel (comando central):', leadData);
+        
         try {
-            const leads = JSON.parse(localStorage.getItem('leads') || '[]');
-            leadData.id = Date.now().toString();
-            leads.push(leadData);
-            localStorage.setItem('leads', JSON.stringify(leads));
-            console.log('✅ Lead salvo no localStorage');
+            const result = await this.dbService.createLead(leadData);
+            
+            if (result.success) {
+                console.log('✅ Lead criado no Supabase via painel');
+                await this.loadLeadsFromSupabase(); // Recarregar da fonte oficial
+                this.showView('leadsView');
+                e.target.reset();
+                this.showNotification('Lead criado com sucesso no Supabase!', 'success');
+            } else {
+                console.error('❌ Erro ao criar lead:', result.error);
+                this.showNotification('Erro ao criar lead: ' + result.error, 'error');
+            }
+            
         } catch (error) {
-            console.error('❌ Erro ao salvar lead:', error);
+            console.error('❌ Erro ao criar lead:', error);
+            this.showNotification('Erro ao criar lead: ' + error.message, 'error');
         }
     }
 
     buildAddress(formData) {
-        const endereco = formData.get('endereco') || document.getElementById('addLeadEndereco')?.value || '';
-        const numero = formData.get('numero') || document.getElementById('addLeadNumero')?.value || '';
-        const complemento = formData.get('complemento') || document.getElementById('addLeadComplemento')?.value || '';
-        const bairro = formData.get('bairro') || document.getElementById('addLeadBairro')?.value || '';
-        const cep = formData.get('cep') || document.getElementById('addLeadCEP')?.value || '';
-        const cidade = formData.get('cidade') || document.getElementById('addLeadCidade')?.value || '';
-        const estado = formData.get('estado') || document.getElementById('addLeadEstado')?.value || '';
-        const pais = formData.get('pais') || document.getElementById('addLeadPais')?.value || 'BR';
-
+        const endereco = formData.get('endereco') || '';
+        const numero = formData.get('numero') || '';
+        const complemento = formData.get('complemento') || '';
+        const bairro = formData.get('bairro') || '';
+        const cep = formData.get('cep') || '';
+        const cidade = formData.get('cidade') || '';
+        const estado = formData.get('estado') || '';
+        const pais = formData.get('pais') || 'BR';
+        
         return `${endereco}, ${numero}${complemento ? ` - ${complemento}` : ''} - ${bairro} - ${cidade}/${estado} - CEP: ${cep} - ${pais}`;
     }
 
-    // Bulk Import Methods
-    previewBulkData() {
-        const textarea = document.getElementById('bulkDataTextarea');
-        if (!textarea || !textarea.value.trim()) {
-            this.showNotification('Por favor, cole os dados na caixa de texto', 'error');
+    async forceSyncWithSupabase() {
+        if (this.isSyncing) {
+            this.showNotification('Sincronização já em andamento...', 'info');
             return;
         }
 
-        try {
-            this.bulkData = this.parseBulkData(textarea.value);
-            this.displayBulkPreview();
-        } catch (error) {
-            console.error('❌ Erro ao processar dados:', error);
-            this.showNotification('Erro ao processar dados: ' + error.message, 'error');
-        }
-    }
-
-    parseBulkData(rawData) {
-        const lines = rawData.trim().split('\n').filter(line => line.trim());
-        const parsedData = [];
-        const seenCPFs = new Set();
-        const duplicatesRemoved = [];
-
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i].trim();
-            if (!line) continue;
-
-            // Split by tabs or multiple spaces
-            const fields = line.split(/\t+|\s{2,}/).map(field => field.trim());
-            
-            if (fields.length < 4) {
-                console.warn(`Linha ${i + 1} ignorada: poucos campos`);
-                continue;
-            }
-
-            const [nome, email, telefone, cpf, produto, valor, rua, numero, complemento, bairro, cep, cidade, estado, pais] = fields;
-            
-            // Clean CPF
-            const cleanCPF = (cpf || '').replace(/[^\d]/g, '');
-            
-            // Check for internal duplicates
-            if (seenCPFs.has(cleanCPF)) {
-                duplicatesRemoved.push({ nome, cpf: cleanCPF });
-                continue;
-            }
-            
-            seenCPFs.add(cleanCPF);
-
-            // Build address
-            const endereco = this.buildAddressFromFields({
-                rua: rua || '',
-                numero: numero || '',
-                complemento: complemento || '',
-                bairro: bairro || '',
-                cep: cep || '',
-                cidade: cidade || '',
-                estado: estado || '',
-                pais: pais || 'BR'
-            });
-
-            parsedData.push({
-                nome_completo: nome || '',
-                email: email || '',
-                telefone: telefone || '',
-                cpf: cleanCPF,
-                produto: produto || 'Kit 12 caixas organizadoras + brinde',
-                valor_total: parseFloat(valor) || 67.90,
-                endereco: endereco,
-                meio_pagamento: 'PIX',
-                origem: 'direto',
-                etapa_atual: 1,
-                status_pagamento: 'pendente',
-                order_bumps: [],
-                produtos: [{
-                    nome: produto || 'Kit 12 caixas organizadoras + brinde',
-                    preco: parseFloat(valor) || 67.90
-                }],
-                lineNumber: i + 1
-            });
-        }
-
-        console.log(`📊 Dados processados: ${parsedData.length} leads, ${duplicatesRemoved.length} duplicatas removidas`);
+        console.log('🔄 Forçando sincronização com Supabase...');
+        this.isSyncing = true;
         
-        return {
-            leads: parsedData,
-            duplicatesRemoved: duplicatesRemoved
-        };
-    }
-
-    buildAddressFromFields({ rua, numero, complemento, bairro, cep, cidade, estado, pais }) {
-        return `${rua}, ${numero}${complemento ? ` - ${complemento}` : ''} - ${bairro} - ${cidade}/${estado} - CEP: ${cep} - ${pais}`;
-    }
-
-    displayBulkPreview() {
-        const previewSection = document.getElementById('bulkPreviewSection');
-        const previewContainer = document.getElementById('bulkPreviewContainer');
-        const confirmButton = document.getElementById('confirmBulkImportButton');
-        const previewSummary = document.getElementById('previewSummary');
-
-        if (!previewSection || !previewContainer) return;
-
-        previewSection.style.display = 'block';
-
-        // Create preview table
-        let tableHTML = `
-            <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
-                <thead>
-                    <tr style="background: #f8f9fa;">
-                        <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Nome</th>
-                        <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Email</th>
-                        <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Telefone</th>
-                        <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">CPF</th>
-                        <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Produto</th>
-                        <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Valor</th>
-                    </tr>
-                </thead>
-                <tbody>
-        `;
-
-        this.bulkData.leads.forEach((lead, index) => {
-            const rowClass = index % 2 === 0 ? 'background: #f9f9f9;' : '';
-            tableHTML += `
-                <tr style="${rowClass}">
-                    <td style="padding: 6px; border: 1px solid #ddd;">${lead.nome_completo}</td>
-                    <td style="padding: 6px; border: 1px solid #ddd;">${lead.email}</td>
-                    <td style="padding: 6px; border: 1px solid #ddd;">${lead.telefone}</td>
-                    <td style="padding: 6px; border: 1px solid #ddd;">${CPFValidator.formatCPF(lead.cpf)}</td>
-                    <td style="padding: 6px; border: 1px solid #ddd;">${lead.produto}</td>
-                    <td style="padding: 6px; border: 1px solid #ddd;">R$ ${lead.valor_total.toFixed(2)}</td>
-                </tr>
-            `;
-        });
-
-        tableHTML += '</tbody></table>';
-
-        // Add duplicates info if any
-        if (this.bulkData.duplicatesRemoved.length > 0) {
-            tableHTML += `
-                <div style="margin-top: 15px; padding: 10px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px;">
-                    <strong>📋 Duplicatas Removidas (${this.bulkData.duplicatesRemoved.length}):</strong>
-                    <ul style="margin: 5px 0 0 20px;">
-                        ${this.bulkData.duplicatesRemoved.map(dup => 
-                            `<li>${dup.nome} - CPF: ${this.formatCPF(dup.cpf)}</li>`
-                        ).join('')}
-                    </ul>
-                </div>
-            `;
+        const syncButton = document.getElementById('syncSupabaseButton');
+        if (syncButton) {
+            const originalText = syncButton.innerHTML;
+            syncButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sincronizando...';
+            syncButton.disabled = true;
         }
-
-        previewContainer.innerHTML = tableHTML;
-
-        // Update summary
-        if (previewSummary) {
-            previewSummary.textContent = `${this.bulkData.leads.length} leads para importar${this.bulkData.duplicatesRemoved.length > 0 ? `, ${this.bulkData.duplicatesRemoved.length} duplicatas removidas` : ''}`;
-        }
-
-        // Show confirm button
-        if (confirmButton) {
-            confirmButton.style.display = 'inline-block';
-        }
-    }
-
-    async confirmBulkImport() {
-        if (!this.bulkData || !this.bulkData.leads.length) {
-            this.showNotification('Nenhum dado para importar', 'error');
-            return;
-        }
-
-        const confirmButton = document.getElementById('confirmBulkImportButton');
-        if (!confirmButton) return;
-
-        const originalText = confirmButton.innerHTML;
-        confirmButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Importando...';
-        confirmButton.disabled = true;
 
         try {
-            const results = await this.processBulkImport();
-            this.displayBulkResults(results);
+            // Recarregar todos os dados do Supabase
+            await this.loadLeadsFromSupabase();
+            
+            console.log('✅ Sincronização forçada concluída');
+            this.showNotification('Sincronização com Supabase concluída!', 'success');
+            
         } catch (error) {
-            console.error('❌ Erro na importação em massa:', error);
-            this.showNotification('Erro na importação: ' + error.message, 'error');
+            console.error('❌ Erro na sincronização forçada:', error);
+            this.showNotification('Erro na sincronização: ' + error.message, 'error');
         } finally {
-            confirmButton.innerHTML = originalText;
-            confirmButton.disabled = false;
-        }
-    }
-
-    processBulkImport() {
-        const results = {
-            success: [],
-            errors: [],
-            total: this.bulkData.leads.length
-        };
-
-        this.bulkData.leads.forEach(leadData => {
-            try {
-                // Validate lead data
-                const validation = this.validateLeadData(leadData);
-                if (!validation.isValid) {
-                    results.errors.push({
-                        nome: leadData.nome_completo,
-                        cpf: leadData.cpf,
-                        error: validation.error,
-                        type: 'validation'
-                    });
-                    return;
-                }
-
-                // Check if lead already exists in localStorage
-                const existingLeads = JSON.parse(localStorage.getItem('leads') || '[]');
-                const existingLead = existingLeads.find(lead => lead.cpf === leadData.cpf);
-                if (existingLead) {
-                    results.errors.push({
-                        nome: leadData.nome_completo,
-                        cpf: leadData.cpf,
-                        error: 'CPF já existe no sistema',
-                        type: 'duplicate'
-                    });
-                    return;
-                }
-
-                // Create lead
-                leadData.id = Date.now().toString() + Math.random().toString(36).substr(2, 9);
-                existingLeads.push(leadData);
-                localStorage.setItem('leads', JSON.stringify(existingLeads));
-                
-                results.success.push({
-                    nome: leadData.nome_completo,
-                    cpf: leadData.cpf,
-                    id: leadData.id
-                });
-            } catch (error) {
-                results.errors.push({
-                    nome: leadData.nome_completo,
-                    cpf: leadData.cpf,
-                    error: error.message,
-                    type: 'exception'
-                });
-            }
-        });
-
-        return results;
-    }
-
-    validateLeadData(leadData) {
-        // Check required fields
-        if (!leadData.nome_completo || leadData.nome_completo.trim().length < 2) {
-            return { isValid: false, error: 'Nome completo é obrigatório (mínimo 2 caracteres)' };
-        }
-
-        if (!leadData.email || !this.isValidEmail(leadData.email)) {
-            return { isValid: false, error: 'Email é obrigatório e deve ter formato válido' };
-        }
-
-        if (!leadData.telefone || leadData.telefone.length < 10) {
-            return { isValid: false, error: 'Telefone é obrigatório (mínimo 10 dígitos)' };
-        }
-
-        if (!leadData.cpf || leadData.cpf.length !== 11) {
-            return { isValid: false, error: 'CPF é obrigatório e deve ter 11 dígitos' };
-        }
-
-        if (!this.isValidCPF(leadData.cpf)) {
-            return { isValid: false, error: 'CPF inválido (formato ou dígitos verificadores incorretos)' };
-        }
-
-        return { isValid: true };
-    }
-
-    isValidCPF(cpf) {
-        // Basic CPF validation
-        const cleanCPF = cpf.replace(/[^\d]/g, '');
-        if (cleanCPF.length !== 11) return false;
-        if (/^(\d)\1{10}$/.test(cleanCPF)) return false;
-        return true;
-    }
-
-    isValidEmail(email) {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        return emailRegex.test(email);
-    }
-
-    displayBulkResults(results) {
-        const resultsSection = document.getElementById('bulkResultsSection');
-        const resultsContainer = document.getElementById('bulkResultsContainer');
-
-        if (!resultsSection || !resultsContainer) return;
-
-        resultsSection.style.display = 'block';
-
-        let resultsHTML = `
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
-        `;
-
-        // Success Section
-        resultsHTML += `
-            <div style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 8px; padding: 20px;">
-                <h4 style="color: #155724; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
-                    <i class="fas fa-check-circle"></i>
-                    Pedidos Postados com Sucesso (${results.success.length})
-                </h4>
-        `;
-
-        if (results.success.length > 0) {
-            resultsHTML += '<ul style="margin: 0; padding-left: 20px; max-height: 200px; overflow-y: auto;">';
-            results.success.forEach(item => {
-                resultsHTML += `<li style="margin-bottom: 5px; color: #155724;">
-                    <strong>${item.nome}</strong> - CPF: ${CPFValidator.formatCPF(item.cpf)}
-                </li>`;
-            });
-            resultsHTML += '</ul>';
-
-            // Add "Ir para Lista" button
-            resultsHTML += `
-                <div style="margin-top: 15px; text-align: center;">
-                    <button id="goToLeadsListButton" style="
-                        background: #28a745;
-                        color: white;
-                        border: none;
-                        padding: 10px 20px;
-                        border-radius: 6px;
-                        cursor: pointer;
-                        font-weight: 600;
-                        transition: all 0.3s ease;
-                    " onmouseover="this.style.background='#218838'" onmouseout="this.style.background='#28a745'">
-                        <i class="fas fa-list"></i> Ir para Lista
-                    </button>
-                </div>
-            `;
-        } else {
-            resultsHTML += '<p style="color: #856404; font-style: italic;">Nenhum pedido foi postado com sucesso.</p>';
-        }
-
-        resultsHTML += '</div>';
-
-        // Error Section
-        resultsHTML += `
-            <div style="background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 8px; padding: 20px;">
-                <h4 style="color: #721c24; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    Pedidos com Erro (${results.errors.length})
-                </h4>
-        `;
-
-        if (results.errors.length > 0) {
-            resultsHTML += `
-                <div style="max-height: 200px; overflow-y: auto;">
-                    <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
-                        <thead>
-                            <tr style="background: #f5c6cb;">
-                                <th style="padding: 6px; border: 1px solid #f1b0b7; text-align: left;">Nome</th>
-                                <th style="padding: 6px; border: 1px solid #f1b0b7; text-align: left;">CPF</th>
-                                <th style="padding: 6px; border: 1px solid #f1b0b7; text-align: left;">Motivo do Erro</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-            `;
-
-            results.errors.forEach((error, index) => {
-                const rowClass = index % 2 === 0 ? 'background: #fdf2f2;' : '';
-                resultsHTML += `
-                    <tr style="${rowClass}">
-                        <td style="padding: 6px; border: 1px solid #f1b0b7;">${error.nome}</td>
-                        <td style="padding: 6px; border: 1px solid #f1b0b7;">${this.formatCPF(error.cpf)}</td>
-                        <td style="padding: 6px; border: 1px solid #f1b0b7; color: #721c24;">
-                            <strong>${this.getErrorTypeLabel(error.type)}:</strong> ${error.error}
-                        </td>
-                    </tr>
-                `;
-            });
-
-            resultsHTML += '</tbody></table></div>';
-        } else {
-            resultsHTML += '<p style="color: #155724; font-style: italic;">Nenhum erro encontrado! 🎉</p>';
-        }
-
-        resultsHTML += '</div></div>';
-
-        // Summary
-        resultsHTML += `
-            <div style="background: #e2e3e5; border: 1px solid #d6d8db; border-radius: 8px; padding: 15px; text-align: center;">
-                <h4 style="color: #383d41; margin-bottom: 10px;">📊 Resumo da Importação</h4>
-                <div style="display: flex; justify-content: space-around; flex-wrap: wrap; gap: 15px;">
-                    <div>
-                        <strong style="color: #28a745;">${results.success.length}</strong>
-                        <span style="color: #6c757d;"> Sucessos</span>
-                    </div>
-                    <div>
-                        <strong style="color: #dc3545;">${results.errors.length}</strong>
-                        <span style="color: #6c757d;"> Erros</span>
-                    </div>
-                    <div>
-                        <strong style="color: #007bff;">${results.total}</strong>
-                        <span style="color: #6c757d;"> Total Processados</span>
-                    </div>
-                    <div>
-                        <strong style="color: #ffc107;">${this.bulkData.duplicatesRemoved.length}</strong>
-                        <span style="color: #6c757d;"> Duplicatas Removidas</span>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        resultsContainer.innerHTML = resultsHTML;
-
-        // Setup "Ir para Lista" button event
-        const goToListButton = document.getElementById('goToLeadsListButton');
-        if (goToListButton) {
-            goToListButton.addEventListener('click', () => {
-                this.showView('leadsView');
-                this.refreshLeads();
-            });
-        }
-
-        // Hide preview section
-        const previewSection = document.getElementById('bulkPreviewSection');
-        if (previewSection) {
-            previewSection.style.display = 'none';
-        }
-
-        this.bulkResults = results;
-    }
-
-    getErrorTypeLabel(type) {
-        const labels = {
-            'validation': 'Dados Inválidos',
-            'duplicate': 'Duplicidade',
-            'database': 'Erro de Banco',
-            'exception': 'Erro Interno'
-        };
-        return labels[type] || 'Erro';
-    }
-
-    clearBulkData() {
-        const textarea = document.getElementById('bulkDataTextarea');
-        const previewSection = document.getElementById('bulkPreviewSection');
-        const resultsSection = document.getElementById('bulkResultsSection');
-
-        if (textarea) textarea.value = '';
-        if (previewSection) previewSection.style.display = 'none';
-        if (resultsSection) resultsSection.style.display = 'none';
-
-        this.bulkData = [];
-        this.bulkResults = null;
-    }
-
-    editBulkData() {
-        const previewSection = document.getElementById('bulkPreviewSection');
-        if (previewSection) {
-            previewSection.style.display = 'none';
-        }
-
-        const textarea = document.getElementById('bulkDataTextarea');
-        if (textarea) {
-            textarea.focus();
-        }
-    }
-
-    refreshLeads() {
-        console.log('🔄 Atualizando lista de leads...');
-        this.loadLeads();
-        this.showNotification('Lista atualizada com sucesso!', 'success');
-    }
-
-    // Aplicar filtros aos leads
-    applyFilters() {
-        console.log('🔍 Aplicando filtros...');
-        
-        const searchInput = document.getElementById('searchInput');
-        const dateFilter = document.getElementById('dateFilter');
-        const stageFilter = document.getElementById('stageFilter');
-        
-        const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
-        const dateValue = dateFilter ? dateFilter.value : '';
-        const stageValue = stageFilter ? stageFilter.value : 'all';
-        
-        console.log('Filtros aplicados:', { searchTerm, dateValue, stageValue });
-        
-        this.filteredLeads = this.leads.filter(lead => {
-            // Filtro por nome ou CPF
-            if (searchTerm) {
-                const nameMatch = (lead.nome_completo || '').toLowerCase().includes(searchTerm);
-                const cpfMatch = (lead.cpf || '').replace(/[^\d]/g, '').includes(searchTerm.replace(/[^\d]/g, ''));
-                if (!nameMatch && !cpfMatch) {
-                    return false;
-                }
-            }
+            this.isSyncing = false;
             
-            // Filtro por data
-            if (dateValue) {
-                const leadDate = new Date(lead.created_at);
-                const filterDate = new Date(dateValue);
-                if (leadDate.toDateString() !== filterDate.toDateString()) {
-                    return false;
-                }
-            }
-            
-            // Filtro por etapa
-            if (stageValue !== 'all') {
-                const leadStage = lead.etapa_atual || 1;
-                if (leadStage.toString() !== stageValue) {
-                    return false;
-                }
-            }
-            
-            return true;
-        });
-        
-        console.log(`Filtros aplicados: ${this.filteredLeads.length} de ${this.leads.length} leads`);
-        
-        // Resetar página atual
-        this.currentPage = 1;
-        
-        // Atualizar tabela
-        this.renderLeadsTable();
-        this.updateLeadsCount();
-        
-        this.showNotification(`Filtros aplicados: ${this.filteredLeads.length} leads encontrados`, "info");
-    }
-
-    // Lidar com ações do sistema (botões de controle)
-    async handleSystemAction(action) {
-        console.log(`🔧 Executando ação do sistema: ${action}`);
-        
-        // Aplicar filtros primeiro para obter leads corretos
-        // Para ações que afetam todos os leads, usar todos os leads
-        // Para ações que afetam selecionados, usar apenas selecionados
-        let targetLeads;
-        
-        if (action === 'nextAll' || action === 'prevAll' || action === 'clearAll') {
-            // Aplicar filtros para obter leads filtrados
-            this.applyFilters();
-            targetLeads = this.filteredLeads;
-        } else {
-            // Para outras ações, usar leads selecionados
-            targetLeads = this.leads.filter(lead => 
-                this.selectedLeads.has(lead.id || lead.cpf)
-            );
-        }
-        
-        if (action === 'refresh') {
-            this.showLoadingButton('refreshButton', 'Atualizando...');
-            try {
-                this.refreshLeads();
-                this.showNotification("Lista atualizada com sucesso!", "success");
-            } finally {
-                this.hideLoadingButton('refreshButton', '<i class="fas fa-sync"></i> Atualizar Lista');
-            }
-            return;
-        }
-        
-        if (action === 'clearAll') {
-            if (targetLeads.length === 0) {
-                this.showNotification("Nenhum lead encontrado com os filtros aplicados", "error");
-                return;
-            }
-            const confirmed = confirm(`Tem certeza que deseja excluir ${targetLeads.length} leads filtrados? Esta ação é irreversível.`);
-            if (!confirmed) return;
-            
-            this.showLoadingButton('clearAllButton', 'Excluindo...');
-            try {
-                await this.deleteFilteredLeads(targetLeads);
-                this.showNotification(`${targetLeads.length} leads excluídos com sucesso!`, 'success');
-            } catch (error) {
-                console.error('❌ Erro ao excluir leads:', error);
-                this.showNotification("Erro ao excluir leads: " + error.message, "error");
-            } finally {
-                this.hideLoadingButton('clearAllButton', '<i class="fas fa-trash"></i> Limpar Todos');
-            }
-            return;
-        }
-        
-        if (action === 'nextAll' || action === 'prevAll') {
-            if (targetLeads.length === 0) {
-                this.showNotification("Nenhum lead encontrado com os filtros aplicados", "error");
-                return;
-            }
-            
-            const actionText = action === 'nextAll' ? 'avançar' : 'voltar';
-            const buttonId = action === 'nextAll' ? 'nextAllButton' : 'prevAllButton';
-            const buttonText = action === 'nextAll' ? 
-                '<i class="fas fa-forward"></i> Avançar Todos' : 
-                '<i class="fas fa-backward"></i> Voltar Todos';
-            
-            const confirmed = confirm(`Tem certeza que deseja ${actionText} ${targetLeads.length} leads filtrados?`);
-            if (!confirmed) return;
-            
-            this.showLoadingButton(buttonId, `${actionText === 'avançar' ? 'Avançando' : 'Voltando'}...`);
-            try {
-                const change = action === 'nextAll' ? 1 : -1;
-                await this.updateFilteredLeadsStage(targetLeads, change);
-                this.showNotification(`${targetLeads.length} leads ${actionText === 'avançar' ? 'avançados' : 'voltados'} com sucesso!`, "success");
-            } catch (error) {
-                console.error(`❌ Erro ao ${actionText} leads:`, error);
-                this.showNotification(`Erro ao ${actionText} leads: ` + error.message, "error");
-            } finally {
-                this.hideLoadingButton(buttonId, buttonText);
+            if (syncButton) {
+                syncButton.innerHTML = '<i class="fas fa-sync"></i> Sincronizar com Supabase';
+                syncButton.disabled = false;
             }
         }
     }
 
-    // Mostrar loading em botão
-    showLoadingButton(buttonId, loadingText) {
-        const button = document.getElementById(buttonId);
-        if (button) {
-            button.dataset.originalText = button.innerHTML;
-            button.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${loadingText}`;
-            button.disabled = true;
-        }
-    }
-
-    // Esconder loading do botão
-    hideLoadingButton(buttonId, originalText) {
-        const button = document.getElementById(buttonId);
-        if (button) {
-            button.innerHTML = originalText || button.dataset.originalText || button.innerHTML;
-            button.disabled = false;
-            delete button.dataset.originalText;
-        }
-    }
-
-    // Atualizar etapa de leads filtrados
-    async updateFilteredLeadsStage(filteredLeads, increment) {
-        try {
-            const leads = JSON.parse(localStorage.getItem('leads') || '[]');
-            let updatedCount = 0;
-            
-            filteredLeads.forEach(filteredLead => {
-                const leadIndex = leads.findIndex(l => (l.id || l.cpf) === (filteredLead.id || filteredLead.cpf));
-                if (leadIndex !== -1) {
-                    const currentStage = leads[leadIndex].etapa_atual || 1;
-                    const newStage = Math.max(1, Math.min(26, currentStage + increment));
-                    
-                    if (newStage !== currentStage) {
-                        leads[leadIndex].etapa_atual = newStage;
-                        leads[leadIndex].updated_at = new Date().toISOString();
-                        updatedCount++;
-                    }
-                }
-            });
-            
-            localStorage.setItem('leads', JSON.stringify(leads));
-            
-            // Recarregar dados
-            this.loadLeads();
-            
-            console.log(`✅ ${updatedCount} leads atualizados`);
-            return updatedCount;
-        } catch (error) {
-            console.error('❌ Erro ao atualizar etapas:', error);
-            throw error;
-        }
-    }
-
-    // Excluir leads filtrados
-    async deleteFilteredLeads(filteredLeads) {
-        try {
-            const leads = JSON.parse(localStorage.getItem('leads') || '[]');
-            const idsToDelete = filteredLeads.map(lead => lead.id || lead.cpf);
-            
-            const remainingLeads = leads.filter(lead => 
-                !idsToDelete.includes(lead.id || lead.cpf)
-            );
-            
-            localStorage.setItem('leads', JSON.stringify(remainingLeads));
-            
-            // Recarregar dados
-            this.loadLeads();
-            
-            console.log(`✅ ${filteredLeads.length} leads excluídos`);
-            return filteredLeads.length;
-        } catch (error) {
-            console.error('❌ Erro ao excluir leads:', error);
-            throw error;
-        }
+    async refreshLeads() {
+        console.log('🔄 Atualizando lista de leads do Supabase...');
+        await this.loadLeadsFromSupabase();
     }
 
     renderLeadsTable() {
         const tableBody = document.getElementById('leadsTableBody');
         const emptyState = document.getElementById('emptyState');
-
+        
         if (!tableBody) return;
 
         if (this.filteredLeads.length === 0) {
@@ -1012,24 +338,24 @@ class AdminPanel {
         const pageLeads = this.filteredLeads.slice(startIndex, endIndex);
 
         let tableHTML = '';
-
+        
         pageLeads.forEach(lead => {
-            const isSelected = this.selectedLeads.has(lead.id || lead.cpf);
-            const produtos = Array.isArray(lead.produtos) ? lead.produtos : [];
-            const produtoNome = produtos.length > 0 ? produtos[0].nome : 'Produto não informado';
-            const formattedCPF = this.formatCPF(lead.cpf || '');
-
+            const isSelected = this.selectedLeads.has(lead.id);
+            const products = Array.isArray(lead.produtos) ? lead.produtos : [];
+            const productName = products.length > 0 ? products[0].nome : 'Produto não informado';
+            const formattedCPF = CPFValidator.formatCPF(lead.cpf || '');
+            
             tableHTML += `
                 <tr style="${isSelected ? 'background-color: #e3f2fd;' : ''}">
                     <td>
                         <input type="checkbox" ${isSelected ? 'checked' : ''} 
-                               onchange="adminPanel.toggleLeadSelection('${lead.id || lead.cpf}', this.checked)">
+                               onchange="adminPanel.toggleLeadSelection('${lead.id}', this.checked)">
                     </td>
                     <td>${lead.nome_completo || 'N/A'}</td>
                     <td>${formattedCPF}</td>
                     <td>${lead.email || 'N/A'}</td>
                     <td>${lead.telefone || 'N/A'}</td>
-                    <td>${produtoNome}</td>
+                    <td>${productName}</td>
                     <td>R$ ${(lead.valor_total || 0).toFixed(2)}</td>
                     <td>${this.formatDate(lead.created_at)}</td>
                     <td>
@@ -1037,19 +363,24 @@ class AdminPanel {
                             ${lead.etapa_atual || 1}
                         </span>
                     </td>
+                    <td>
+                        <span class="status-indicator ${lead.status_pagamento || 'pending'}">
+                            ${this.getStatusLabel(lead.status_pagamento)}
+                        </span>
+                    </td>
                     <td>${this.formatDate(lead.updated_at)}</td>
                     <td>
                         <div class="lead-actions">
-                            <button class="action-button edit" onclick="adminPanel.editLead('${lead.id || lead.cpf}')">
+                            <button class="action-button edit" onclick="adminPanel.editLead('${lead.id}')">
                                 <i class="fas fa-edit"></i>
                             </button>
-                            <button class="action-button next" onclick="adminPanel.nextStage('${lead.id || lead.cpf}')">
+                            <button class="action-button next" onclick="adminPanel.nextStage('${lead.id}')">
                                 <i class="fas fa-forward"></i>
                             </button>
-                            <button class="action-button prev" onclick="adminPanel.prevStage('${lead.id || lead.cpf}')">
+                            <button class="action-button prev" onclick="adminPanel.prevStage('${lead.id}')">
                                 <i class="fas fa-backward"></i>
                             </button>
-                            <button class="action-button delete" onclick="adminPanel.deleteLead('${lead.id || lead.cpf}')">
+                            <button class="action-button delete" onclick="adminPanel.deleteLead('${lead.id}')">
                                 <i class="fas fa-trash"></i>
                             </button>
                         </div>
@@ -1062,12 +393,207 @@ class AdminPanel {
         this.updateSelectedCount();
     }
 
-    formatCPF(cpf) {
-        const cleanCPF = cpf.replace(/[^\d]/g, '');
-        if (cleanCPF.length <= 11) {
-            return cleanCPF.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+    getStatusLabel(status) {
+        const statusMap = {
+            'pendente': 'Pendente',
+            'pago': 'Pago',
+            'cancelado': 'Cancelado'
+        };
+        return statusMap[status] || 'Pendente';
+    }
+
+    async nextStage(leadId) {
+        console.log(`⏭️ Avançando etapa para lead: ${leadId}`);
+        await this.updateLeadStageInSupabase(leadId, 1);
+    }
+
+    async prevStage(leadId) {
+        console.log(`⏮️ Retrocedendo etapa para lead: ${leadId}`);
+        await this.updateLeadStageInSupabase(leadId, -1);
+    }
+
+    async updateLeadStageInSupabase(leadId, direction) {
+        try {
+            const lead = this.leads.find(l => l.id === leadId);
+            if (!lead) {
+                this.showNotification('Lead não encontrado', 'error');
+                return;
+            }
+
+            const currentStage = lead.etapa_atual || 1;
+            const newStage = Math.max(1, Math.min(26, currentStage + direction));
+            
+            console.log(`📊 Atualizando etapa no Supabase: ${currentStage} → ${newStage}`);
+            
+            const result = await this.dbService.updateLead(leadId, {
+                etapa_atual: newStage
+            });
+
+            if (result.success) {
+                console.log('✅ Etapa atualizada no Supabase via painel');
+                await this.loadLeadsFromSupabase(); // Recarregar da fonte oficial
+                
+                const action = direction > 0 ? 'avançada' : 'retrocedida';
+                this.showNotification(`Etapa ${action} com sucesso! Nova etapa: ${newStage}`, 'success');
+            } else {
+                console.error('❌ Erro ao atualizar etapa:', result.error);
+                this.showNotification('Erro ao atualizar etapa: ' + result.error, 'error');
+            }
+            
+        } catch (error) {
+            console.error('❌ Erro ao atualizar etapa:', error);
+            this.showNotification('Erro ao atualizar etapa: ' + error.message, 'error');
         }
-        return cpf;
+    }
+
+    async deleteLead(leadId) {
+        if (!confirm('Tem certeza que deseja excluir este lead do Supabase?')) return;
+        
+        console.log(`🗑️ Excluindo lead do Supabase: ${leadId}`);
+        
+        try {
+            const result = await this.dbService.deleteLead(leadId);
+            
+            if (result.success) {
+                console.log('✅ Lead excluído do Supabase via painel');
+                await this.loadLeadsFromSupabase(); // Recarregar da fonte oficial
+                this.showNotification('Lead excluído com sucesso do Supabase!', 'success');
+            } else {
+                console.error('❌ Erro ao excluir lead:', result.error);
+                this.showNotification('Erro ao excluir lead: ' + result.error, 'error');
+            }
+            
+        } catch (error) {
+            console.error('❌ Erro ao excluir lead:', error);
+            this.showNotification('Erro ao excluir lead: ' + error.message, 'error');
+        }
+    }
+
+    async handleMassAction(action) {
+        if (this.selectedLeads.size === 0) {
+            this.showNotification('Nenhum lead selecionado', 'error');
+            return;
+        }
+
+        console.log(`🔧 Ação em massa no Supabase: ${action} para ${this.selectedLeads.size} leads`);
+
+        const selectedIds = Array.from(this.selectedLeads);
+        
+        switch (action) {
+            case 'nextStage':
+                await this.massUpdateStages(selectedIds, 1);
+                break;
+            case 'prevStage':
+                await this.massUpdateStages(selectedIds, -1);
+                break;
+            case 'setStage':
+                await this.massSetStage(selectedIds);
+                break;
+            case 'delete':
+                await this.massDeleteLeads(selectedIds);
+                break;
+        }
+    }
+
+    async massUpdateStages(leadIds, direction) {
+        const action = direction > 0 ? 'avançar' : 'retroceder';
+        
+        if (!confirm(`Tem certeza que deseja ${action} ${leadIds.length} lead(s) no Supabase?`)) return;
+
+        try {
+            console.log(`📊 Atualizando etapas em massa no Supabase (${action})...`);
+            
+            // Atualizar cada lead individualmente para calcular nova etapa
+            let updatedCount = 0;
+            
+            for (const leadId of leadIds) {
+                const lead = this.leads.find(l => l.id === leadId);
+                if (lead) {
+                    const currentStage = lead.etapa_atual || 1;
+                    const newStage = Math.max(1, Math.min(26, currentStage + direction));
+                    
+                    const result = await this.dbService.updateLead(leadId, {
+                        etapa_atual: newStage
+                    });
+                    
+                    if (result.success) {
+                        updatedCount++;
+                    }
+                }
+            }
+            
+            this.selectedLeads.clear();
+            await this.loadLeadsFromSupabase(); // Recarregar da fonte oficial
+            
+            this.showNotification(`${updatedCount} lead(s) ${action === 'avançar' ? 'avançados' : 'retrocedidos'} no Supabase!`, 'success');
+            console.log(`✅ ${updatedCount} leads atualizados no Supabase`);
+            
+        } catch (error) {
+            console.error(`❌ Erro ao ${action} leads:`, error);
+            this.showNotification(`Erro ao ${action} leads: ` + error.message, 'error');
+        }
+    }
+
+    async massSetStage(leadIds) {
+        const stageInput = prompt(`Digite a etapa desejada (1-26) para ${leadIds.length} lead(s):`);
+        if (!stageInput) return;
+
+        const newStage = parseInt(stageInput);
+        if (isNaN(newStage) || newStage < 1 || newStage > 26) {
+            this.showNotification('Etapa inválida. Digite um número entre 1 e 26.', 'error');
+            return;
+        }
+
+        if (!confirm(`Tem certeza que deseja definir a etapa ${newStage} para ${leadIds.length} lead(s) no Supabase?`)) return;
+
+        try {
+            console.log(`📊 Definindo etapa ${newStage} em massa no Supabase...`);
+            
+            const result = await this.dbService.bulkUpdateLeads(leadIds, {
+                etapa_atual: newStage
+            });
+
+            if (result.success) {
+                this.selectedLeads.clear();
+                await this.loadLeadsFromSupabase(); // Recarregar da fonte oficial
+                this.showNotification(`${result.data.length} lead(s) definidos para etapa ${newStage} no Supabase!`, 'success');
+                console.log(`✅ ${result.data.length} leads atualizados no Supabase`);
+            } else {
+                console.error('❌ Erro ao definir etapa:', result.error);
+                this.showNotification('Erro ao definir etapa: ' + result.error, 'error');
+            }
+            
+        } catch (error) {
+            console.error('❌ Erro ao definir etapa:', error);
+            this.showNotification('Erro ao definir etapa: ' + error.message, 'error');
+        }
+    }
+
+    async massDeleteLeads(leadIds) {
+        if (!confirm(`⚠️ ATENÇÃO: Tem certeza que deseja EXCLUIR ${leadIds.length} lead(s) do Supabase?\n\nEsta ação não pode ser desfeita!`)) return;
+
+        try {
+            console.log(`🗑️ Excluindo ${leadIds.length} leads do Supabase...`);
+            
+            let deletedCount = 0;
+            
+            for (const leadId of leadIds) {
+                const result = await this.dbService.deleteLead(leadId);
+                if (result.success) {
+                    deletedCount++;
+                }
+            }
+            
+            this.selectedLeads.clear();
+            await this.loadLeadsFromSupabase(); // Recarregar da fonte oficial
+            
+            this.showNotification(`${deletedCount} lead(s) excluído(s) do Supabase!`, 'success');
+            console.log(`✅ ${deletedCount} leads excluídos do Supabase`);
+            
+        } catch (error) {
+            console.error('❌ Erro ao excluir leads:', error);
+            this.showNotification('Erro ao excluir leads: ' + error.message, 'error');
+        }
     }
 
     toggleLeadSelection(leadId, isSelected) {
@@ -1079,37 +605,16 @@ class AdminPanel {
         this.updateSelectedCount();
     }
 
-    toggleSelectAll(selectAll) {
-        const checkboxes = document.querySelectorAll('#leadsTableBody input[type="checkbox"]');
-        
-        if (selectAll) {
-            this.filteredLeads.forEach(lead => {
-                this.selectedLeads.add(lead.id || lead.cpf);
-            });
-        } else {
-            this.selectedLeads.clear();
-        }
-
-        checkboxes.forEach(checkbox => {
-            checkbox.checked = selectAll;
-        });
-
-        this.renderLeadsTable();
-        this.updateSelectedCount();
-    }
-
     updateSelectedCount() {
         const selectedCount = document.getElementById('selectedCount');
         const massActionButtons = document.querySelectorAll('.mass-action-button');
         const actionCounts = document.querySelectorAll('.action-count');
-
         const count = this.selectedLeads.size;
 
         if (selectedCount) {
             selectedCount.textContent = `${count} selecionados`;
         }
 
-        // Enable/disable mass action buttons
         massActionButtons.forEach(button => {
             button.disabled = count === 0;
             if (count === 0) {
@@ -1121,9 +626,8 @@ class AdminPanel {
             }
         });
 
-        // Update action counts
-        actionCounts.forEach(element => {
-            element.textContent = `(${count} leads)`;
+        actionCounts.forEach(span => {
+            span.textContent = `(${count} leads)`;
         });
     }
 
@@ -1138,15 +642,14 @@ class AdminPanel {
         if (!dateString) return 'N/A';
         
         try {
-            const date = new Date(dateString);
-            return date.toLocaleDateString('pt-BR', {
+            return new Date(dateString).toLocaleDateString('pt-BR', {
                 day: '2-digit',
                 month: '2-digit',
                 year: 'numeric',
                 hour: '2-digit',
                 minute: '2-digit'
             });
-        } catch (error) {
+        } catch {
             return 'Data inválida';
         }
     }
@@ -1155,6 +658,42 @@ class AdminPanel {
         if (stage >= 26) return 'completed';
         if (stage >= 6) return 'pending';
         return '';
+    }
+
+    showLoadingIndicator() {
+        const indicator = document.createElement('div');
+        indicator.id = 'loadingIndicator';
+        indicator.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.95);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+            z-index: 3000;
+            text-align: center;
+            border: 2px solid #1e4a6b;
+        `;
+        
+        indicator.innerHTML = `
+            <div style="margin-bottom: 15px;">
+                <i class="fas fa-database" style="font-size: 2rem; color: #1e4a6b; animation: pulse 1.5s infinite;"></i>
+            </div>
+            <p style="margin: 0; color: #2c3e50; font-weight: 600;">
+                Carregando dados do Supabase...
+            </p>
+        `;
+        
+        document.body.appendChild(indicator);
+    }
+
+    hideLoadingIndicator() {
+        const indicator = document.getElementById('loadingIndicator');
+        if (indicator) {
+            indicator.remove();
+        }
     }
 
     showNotification(message, type = 'info') {
@@ -1169,6 +708,7 @@ class AdminPanel {
             font-weight: 600;
             z-index: 9999;
             animation: slideInRight 0.3s ease;
+            max-width: 400px;
         `;
 
         switch (type) {
@@ -1192,426 +732,54 @@ class AdminPanel {
                     notification.remove();
                 }
             }, 300);
-        }, 3000);
+        }, 4000);
     }
 
-    async handleMassAction(action) {
-        if (this.selectedLeads.size === 0) {
-            this.showNotification('Nenhum lead selecionado', 'error');
-            return;
-        }
-
-        console.log(`🔧 Ação em massa: ${action} para ${this.selectedLeads.size} leads`);
+    applyFilters() {
+        console.log('🔍 Aplicando filtros...');
         
-        switch (action) {
-            case 'nextStage':
-                await this.massNextStage();
-                break;
-            case 'prevStage':
-                await this.massPrevStage();
-                break;
-            case 'setStage':
-                await this.massSetStage();
-                break;
-            case 'delete':
-                await this.massDeleteLeads();
-                break;
-            default:
-                console.warn('Ação não reconhecida:', action);
-        }
-    }
-
-    async massNextStage() {
-        if (this.selectedLeads.size === 0) {
-            this.showNotification('Nenhum lead selecionado', 'error');
-            return;
-        }
-
-        const confirmMessage = `Tem certeza que deseja avançar ${this.selectedLeads.size} lead(s) para a próxima etapa?`;
-        if (!confirm(confirmMessage)) return;
-
-        try {
-            const leads = JSON.parse(localStorage.getItem('leads') || '[]');
-            let updatedCount = 0;
-
-            // Atualizar cada lead selecionado
-            this.selectedLeads.forEach(leadId => {
-                const leadIndex = leads.findIndex(l => (l.id || l.cpf) === leadId);
-                if (leadIndex !== -1) {
-                    const currentStage = leads[leadIndex].etapa_atual || 1;
-                    const newStage = Math.min(26, currentStage + 1);
-                    
-                    leads[leadIndex].etapa_atual = newStage;
-                    leads[leadIndex].updated_at = new Date().toISOString();
-                    updatedCount++;
-                }
-            });
-
-            // Salvar no localStorage
-            localStorage.setItem('leads', JSON.stringify(leads));
-            
-            // Limpar seleção e recarregar tabela
-            this.selectedLeads.clear();
-            this.loadLeads();
-            
-            this.showNotification(`${updatedCount} lead(s) avançado(s) com sucesso!`, 'success');
-            console.log(`✅ ${updatedCount} leads avançados para próxima etapa`);
-            
-        } catch (error) {
-            console.error('❌ Erro ao avançar leads:', error);
-            this.showNotification('Erro ao avançar leads: ' + error.message, 'error');
-        }
-    }
-
-    async massPrevStage() {
-        if (this.selectedLeads.size === 0) {
-            this.showNotification('Nenhum lead selecionado', 'error');
-            return;
-        }
-
-        const confirmMessage = `Tem certeza que deseja retroceder ${this.selectedLeads.size} lead(s) para a etapa anterior?`;
-        if (!confirm(confirmMessage)) return;
-
-        try {
-            const leads = JSON.parse(localStorage.getItem('leads') || '[]');
-            let updatedCount = 0;
-
-            // Atualizar cada lead selecionado
-            this.selectedLeads.forEach(leadId => {
-                const leadIndex = leads.findIndex(l => (l.id || l.cpf) === leadId);
-                if (leadIndex !== -1) {
-                    const currentStage = leads[leadIndex].etapa_atual || 1;
-                    const newStage = Math.max(1, currentStage - 1); // Mínimo 1
-                    
-                    leads[leadIndex].etapa_atual = newStage;
-                    leads[leadIndex].updated_at = new Date().toISOString();
-                    updatedCount++;
-                }
-            });
-
-            // Salvar no localStorage
-            localStorage.setItem('leads', JSON.stringify(leads));
-            
-            // Limpar seleção e recarregar tabela
-            this.selectedLeads.clear();
-            this.loadLeads();
-            
-            this.showNotification(`${updatedCount} lead(s) retrocedido(s) com sucesso!`, 'success');
-            console.log(`✅ ${updatedCount} leads retrocedidos para etapa anterior`);
-            
-        } catch (error) {
-            console.error('❌ Erro ao retroceder leads:', error);
-            this.showNotification('Erro ao retroceder leads: ' + error.message, 'error');
-        }
-    }
-
-    async massSetStage() {
-        if (this.selectedLeads.size === 0) {
-            this.showNotification('Nenhum lead selecionado', 'error');
-            return;
-        }
-
-        const targetStage = prompt(`Digite a etapa desejada (1-26) para ${this.selectedLeads.size} lead(s):`);
+        const searchInput = document.getElementById('searchInput');
+        const dateFilter = document.getElementById('dateFilter');
+        const stageFilter = document.getElementById('stageFilter');
         
-        if (!targetStage) return; // Usuário cancelou
+        const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
+        const dateValue = dateFilter ? dateFilter.value : '';
+        const stageValue = stageFilter ? stageFilter.value : 'all';
         
-        const stageNumber = parseInt(targetStage);
-        if (isNaN(stageNumber) || stageNumber < 1 || stageNumber > 26) {
-            this.showNotification('Etapa inválida. Digite um número entre 1 e 26.', 'error');
-            return;
-        }
-
-        const confirmMessage = `Tem certeza que deseja definir a etapa ${stageNumber} para ${this.selectedLeads.size} lead(s)?`;
-        if (!confirm(confirmMessage)) return;
-
-        try {
-            const leads = JSON.parse(localStorage.getItem('leads') || '[]');
-            let updatedCount = 0;
-
-            // Atualizar cada lead selecionado
-            this.selectedLeads.forEach(leadId => {
-                const leadIndex = leads.findIndex(l => (l.id || l.cpf) === leadId);
-                if (leadIndex !== -1) {
-                    leads[leadIndex].etapa_atual = stageNumber;
-                    leads[leadIndex].updated_at = new Date().toISOString();
-                    updatedCount++;
-                }
-            });
-
-            // Salvar no localStorage
-            localStorage.setItem('leads', JSON.stringify(leads));
-            
-            // Limpar seleção e recarregar tabela
-            this.selectedLeads.clear();
-            this.loadLeads();
-            
-            this.showNotification(`${updatedCount} lead(s) definido(s) para etapa ${stageNumber} com sucesso!`, 'success');
-            console.log(`✅ ${updatedCount} leads definidos para etapa ${stageNumber}`);
-            
-        } catch (error) {
-            console.error('❌ Erro ao definir etapa dos leads:', error);
-            this.showNotification('Erro ao definir etapa dos leads: ' + error.message, 'error');
-        }
-    }
-
-    async massDeleteLeads() {
-        if (this.selectedLeads.size === 0) {
-            this.showNotification('Nenhum lead selecionado', 'error');
-            return;
-        }
-
-        const confirmMessage = `⚠️ ATENÇÃO: Tem certeza que deseja EXCLUIR ${this.selectedLeads.size} lead(s)?\n\nEsta ação não pode ser desfeita!`;
-        if (!confirm(confirmMessage)) return;
-
-        try {
-            const leads = JSON.parse(localStorage.getItem('leads') || '[]');
-            let deletedCount = 0;
-
-            // Filtrar leads removendo os selecionados
-            const remainingLeads = leads.filter(lead => {
-                const leadId = lead.id || lead.cpf;
-                if (this.selectedLeads.has(leadId)) {
-                    deletedCount++;
-                    return false; // Remove este lead
-                }
-                return true; // Mantém este lead
-            });
-
-            // Salvar no localStorage
-            localStorage.setItem('leads', JSON.stringify(remainingLeads));
-            
-            // Limpar seleção e recarregar tabela
-            this.selectedLeads.clear();
-            this.loadLeads();
-            
-            this.showNotification(`${deletedCount} lead(s) excluído(s) com sucesso!`, 'success');
-            console.log(`✅ ${deletedCount} leads excluídos`);
-            
-        } catch (error) {
-            console.error('❌ Erro ao excluir leads:', error);
-            this.showNotification('Erro ao excluir leads: ' + error.message, 'error');
-        }
-    }
-
-    async editLead(leadId) {
-        console.log(`✏️ Editando lead: ${leadId}`);
-        
-        try {
-            // Find lead in localStorage
-            const leads = JSON.parse(localStorage.getItem('leads') || '[]');
-            const lead = leads.find(l => (l.id || l.cpf) === leadId);
-            
-            if (!lead) {
-                this.showNotification('Lead não encontrado', 'error');
-                return;
+        this.filteredLeads = this.leads.filter(lead => {
+            // Filtro de busca
+            if (searchTerm) {
+                const nameMatch = (lead.nome_completo || '').toLowerCase().includes(searchTerm);
+                const cpfMatch = (lead.cpf || '').replace(/[^\d]/g, '').includes(searchTerm.replace(/[^\d]/g, ''));
+                if (!nameMatch && !cpfMatch) return false;
             }
             
-            this.editingLead = lead;
-            this.populateEditForm(lead);
-            this.showEditModal();
-        } catch (error) {
-            console.error('❌ Erro ao carregar lead para edição:', error);
-            this.showNotification('Erro ao carregar dados do lead', 'error');
-        }
-    }
-
-    populateEditForm(lead) {
-        document.getElementById('editName').value = lead.nome_completo || '';
-        document.getElementById('editCPF').value = lead.cpf || '';
-        document.getElementById('editEmail').value = lead.email || '';
-        document.getElementById('editPhone').value = lead.telefone || '';
-        document.getElementById('editAddress').value = lead.endereco || '';
-        document.getElementById('editStage').value = lead.etapa_atual || 1;
-        
-        // Set current date/time for stage if not exists
-        if (lead.updated_at) {
-            const date = new Date(lead.updated_at);
-            const localDateTime = new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-            document.getElementById('editStageDateTime').value = localDateTime;
-        } else {
-            const now = new Date();
-            const localDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-            document.getElementById('editStageDateTime').value = localDateTime;
-        }
-    }
-
-    showEditModal() {
-        const modal = document.getElementById('editModal');
-        if (modal) {
-            modal.style.display = 'flex';
-            document.body.style.overflow = 'hidden';
-        }
-    }
-
-    closeEditModal() {
-        const modal = document.getElementById('editModal');
-        if (modal) {
-            modal.style.display = 'none';
-            document.body.style.overflow = 'auto';
-        }
-        this.editingLead = null;
-    }
-
-    async handleEditSubmit(e) {
-        e.preventDefault();
-        
-        if (!this.editingLead) {
-            this.showNotification('Nenhum lead selecionado para edição', 'error');
-            return;
-        }
-
-        try {
-            const formData = new FormData(e.target);
-            const updatedLead = {
-                ...this.editingLead,
-                nome_completo: document.getElementById('editName').value,
-                cpf: document.getElementById('editCPF').value.replace(/[^\d]/g, ''),
-                email: document.getElementById('editEmail').value,
-                telefone: document.getElementById('editPhone').value,
-                endereco: document.getElementById('editAddress').value,
-                etapa_atual: parseInt(document.getElementById('editStage').value),
-                updated_at: new Date().toISOString()
-            };
-
-            // Update in localStorage
-            const leads = JSON.parse(localStorage.getItem('leads') || '[]');
-            const leadIndex = leads.findIndex(l => (l.id || l.cpf) === (this.editingLead.id || this.editingLead.cpf));
-            
-            if (leadIndex !== -1) {
-                leads[leadIndex] = updatedLead;
-                localStorage.setItem('leads', JSON.stringify(leads));
-                
-                this.closeEditModal();
-                this.loadLeads();
-                this.showNotification('Lead atualizado com sucesso!', 'success');
-            } else {
-                throw new Error('Lead não encontrado para atualização');
+            // Filtro de data
+            if (dateValue) {
+                const leadDate = new Date(lead.created_at);
+                const filterDate = new Date(dateValue);
+                if (leadDate.toDateString() !== filterDate.toDateString()) return false;
             }
             
-        } catch (error) {
-            console.error('❌ Erro ao atualizar lead:', error);
-            this.showNotification('Erro ao atualizar lead: ' + error.message, 'error');
-        }
-    }
-
-    async nextStage(leadId) {
-        console.log(`⏭️ Próxima etapa para lead: ${leadId}`);
-        await this.updateLeadStage(leadId, 1);
-    }
-
-    async prevStage(leadId) {
-        console.log(`⏮️ Etapa anterior para lead: ${leadId}`);
-        await this.updateLeadStage(leadId, -1);
-    }
-
-    async updateLeadStage(leadId, direction) {
-        try {
-            const leads = JSON.parse(localStorage.getItem('leads') || '[]');
-            const leadIndex = leads.findIndex(l => (l.id || l.cpf) === leadId);
-            
-            if (leadIndex !== -1) {
-                const currentStage = leads[leadIndex].etapa_atual || 1;
-                const newStage = Math.max(1, Math.min(26, currentStage + direction));
-                
-                leads[leadIndex].etapa_atual = newStage;
-                leads[leadIndex].updated_at = new Date().toISOString();
-                
-                localStorage.setItem('leads', JSON.stringify(leads));
-                this.loadLeads();
-                
-                const actionText = direction > 0 ? 'avançada' : 'retrocedida';
-                this.showNotification(`Etapa ${actionText} com sucesso! Nova etapa: ${newStage}`, 'success');
-                console.log(`✅ Etapa atualizada para ${newStage}`);
-            } else {
-                throw new Error('Lead não encontrado');
-            }
-        } catch (error) {
-            console.error('❌ Erro ao atualizar etapa:', error);
-            this.showNotification('Erro ao atualizar etapa: ' + error.message, 'error');
-        }
-    }
-
-    async deleteLead(leadId) {
-        if (confirm('Tem certeza que deseja excluir este lead?')) {
-            console.log(`🗑️ Excluindo lead: ${leadId}`);
-            try {
-                const leads = JSON.parse(localStorage.getItem('leads') || '[]');
-                const filteredLeads = leads.filter(l => (l.id || l.cpf) !== leadId);
-                
-                if (leads.length === filteredLeads.length) {
-                    throw new Error('Lead não encontrado para exclusão');
-                }
-                
-                localStorage.setItem('leads', JSON.stringify(filteredLeads));
-                this.loadLeads();
-                this.showNotification('Lead excluído com sucesso!', 'success');
-            } catch (error) {
-                console.error('❌ Erro ao excluir lead:', error);
-                this.showNotification('Erro ao excluir lead', 'error');
-            }
-        }
-    }
-
-    async handleSyncAllToSupabase() {
-        console.log('🔄 Iniciando sincronização centralizada com Supabase...');
-        
-        const syncButton = document.getElementById('syncAllToSupabaseButton');
-        if (!syncButton) return;
-        
-        // Mostrar loading
-        const originalText = syncButton.innerHTML;
-        syncButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sincronizando...';
-        syncButton.disabled = true;
-        
-        try {
-            // Sincronizar todos os leads do painel para o Supabase
-            const results = await this.dbService.syncAllLeadsToSupabase();
-            
-            console.log('📊 Resultados da sincronização:', results);
-            
-            // Mostrar resultados
-            if (results.success > 0) {
-                this.showNotification(
-                    `✅ Sincronização concluída! ${results.success} leads sincronizados com sucesso.`,
-                    'success'
-                );
-                
-                if (results.errors > 0) {
-                    this.showNotification(
-                        `⚠️ ${results.errors} leads tiveram erro na sincronização.`,
-                        'warning'
-                    );
-                }
-            } else {
-                this.showNotification(
-                    '❌ Nenhum lead foi sincronizado. Verifique a conexão com Supabase.',
-                    'error'
-                );
+            // Filtro de etapa
+            if (stageValue !== 'all') {
+                if ((lead.etapa_atual || 1).toString() !== stageValue) return false;
             }
             
-            // Atualizar contador
-            const syncCount = document.getElementById('syncCount');
-            if (syncCount) {
-                syncCount.textContent = `(${results.success} sincronizados)`;
-            }
-            
-        } catch (error) {
-            console.error('❌ Erro na sincronização:', error);
-            this.showNotification('Erro na sincronização: ' + error.message, 'error');
-        } finally {
-            // Restaurar botão
-            syncButton.innerHTML = originalText;
-            syncButton.disabled = false;
-        }
+            return true;
+        });
+
+        this.currentPage = 1;
+        this.renderLeadsTable();
+        this.updateLeadsCount();
+        this.showNotification(`Filtros aplicados: ${this.filteredLeads.length} leads encontrados`, 'info');
     }
 }
 
-// Initialize admin panel when DOM is ready
+// Inicializar painel quando DOM estiver pronto
 let adminPanel = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     adminPanel = new AdminPanel();
-    window.adminPanel = adminPanel;
+    window.adminPanel = adminPanel; // Expor globalmente para onclick handlers
 });
-
-export default AdminPanel;

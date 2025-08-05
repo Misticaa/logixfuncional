@@ -1,12 +1,20 @@
 /**
- * Serviço de banco de dados - Integração Supabase
+ * Serviço de banco de dados - Integração Supabase EXCLUSIVA
+ * VERSÃO 16.9: PAINEL CENTRALIZADO - SUPABASE COMO FONTE ÚNICA
  */
 import { createClient } from '@supabase/supabase-js';
 
 export class DatabaseService {
     constructor() {
         this.supabase = this.initializeSupabase();
-        console.log('🗄️ DatabaseService inicializado - Modo Painel Centralizado');
+        this.isAdmin = this.checkIfAdmin();
+        console.log('🗄️ DatabaseService inicializado - Modo Centralizado Supabase');
+        console.log('👤 Modo:', this.isAdmin ? 'PAINEL ADMIN' : 'TRANSPORTADORA');
+    }
+
+    checkIfAdmin() {
+        return window.location.pathname.includes('painelk7') || 
+               window.location.pathname.includes('admin');
     }
 
     initializeSupabase() {
@@ -15,12 +23,14 @@ export class DatabaseService {
             const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
             
             if (!supabaseUrl || !supabaseKey) {
-                console.warn('⚠️ Variáveis do Supabase não encontradas, usando localStorage como fallback');
+                console.error('❌ Variáveis do Supabase não encontradas!');
+                console.error('VITE_SUPABASE_URL:', supabaseUrl ? 'CONFIGURADA' : 'AUSENTE');
+                console.error('VITE_SUPABASE_ANON_KEY:', supabaseKey ? 'CONFIGURADA' : 'AUSENTE');
                 return null;
             }
             
             const client = createClient(supabaseUrl, supabaseKey);
-            console.log('✅ Cliente Supabase inicializado');
+            console.log('✅ Cliente Supabase inicializado com sucesso');
             return client;
         } catch (error) {
             console.error('❌ Erro ao inicializar Supabase:', error);
@@ -29,153 +39,51 @@ export class DatabaseService {
     }
 
     async getLeadByCPF(cpf) {
+        if (!this.supabase) {
+            console.error('❌ Supabase não disponível');
+            return { success: false, error: 'Supabase não configurado' };
+        }
+
         try {
             const cleanCPF = cpf.replace(/[^\d]/g, '');
+            console.log('🔍 Buscando lead no Supabase para CPF:', cleanCPF);
             
-            // 🎯 PAINEL CENTRALIZADO: Dados vêm EXCLUSIVAMENTE do painel
-            console.log('🎯 Buscando lead via painel centralizado para CPF:', cleanCPF);
-            return this.getLeadFromLocalStorage(cleanCPF);
+            const { data, error } = await this.supabase
+                .from('leads')
+                .select('*')
+                .eq('cpf', cleanCPF)
+                .single();
             
-        } catch (error) {
-            console.error('❌ Erro ao buscar lead:', error);
-            // Fallback para localStorage
-            return this.getLeadFromLocalStorage(cpf);
-        }
-    }
-
-    getLeadFromLocalStorage(cleanCPF) {
-        try {
-            console.log('🔍 Buscando lead no localStorage para CPF:', cleanCPF);
-            const leads = JSON.parse(localStorage.getItem('leads') || '[]');
-            const lead = leads.find(l => l.cpf && l.cpf.replace(/[^\d]/g, '') === cleanCPF);
-            
-            if (lead) {
-                console.log('✅ Lead encontrado no localStorage:', lead);
-                return { success: true, data: lead };
-            } else {
-                console.log('❌ Lead não encontrado no localStorage para CPF:', cleanCPF);
-                return { success: false, error: 'Lead não encontrado' };
+            if (error) {
+                if (error.code === 'PGRST116') {
+                    console.log('❌ Lead não encontrado no Supabase para CPF:', cleanCPF);
+                    return { success: false, error: 'Lead não encontrado' };
+                }
+                console.error('❌ Erro ao buscar lead no Supabase:', error);
+                return { success: false, error: error.message };
             }
+            
+            console.log('✅ Lead encontrado no Supabase:', data);
+            return { success: true, data: data };
+            
         } catch (error) {
-            console.error('❌ Erro ao buscar lead no localStorage:', error);
+            console.error('❌ Erro na busca do lead:', error);
             return { success: false, error: error.message };
         }
     }
 
     async createLead(leadData) {
-        try {
-            // 🎯 PAINEL CENTRALIZADO: Criação controlada pelo painel
-            console.log('🎯 Criando lead via painel centralizado');
-            return this.createLeadInLocalStorage(leadData);
-            
-        } catch (error) {
-            console.error('❌ Erro ao criar lead:', error);
-            return this.createLeadInLocalStorage(leadData);
-        }
-    }
-
-    createLeadInLocalStorage(leadData) {
-        try {
-            const leads = JSON.parse(localStorage.getItem('leads') || '[]');
-            leadData.id = Date.now().toString();
-            leadData.created_at = new Date().toISOString();
-            leadData.updated_at = new Date().toISOString();
-            
-            leads.push(leadData);
-            localStorage.setItem('leads', JSON.stringify(leads));
-            
-            console.log('✅ Lead criado no localStorage:', leadData);
-            return { success: true, data: leadData };
-        } catch (error) {
-            console.error('❌ Erro ao criar lead no localStorage:', error);
-            return { success: false, error: error.message };
-        }
-    }
-
-    async updatePaymentStatus(cpf, status) {
-        try {
-            const cleanCPF = cpf.replace(/[^\d]/g, '');
-            
-            // 🎯 PAINEL CENTRALIZADO: Atualizações controladas pelo painel
-            console.log('🎯 Atualizando status via painel centralizado:', status);
-            return this.updatePaymentStatusInLocalStorage(cleanCPF, status);
-            
-        } catch (error) {
-            console.error('❌ Erro ao atualizar status de pagamento:', error);
-            return this.updatePaymentStatusInLocalStorage(cpf, status);
-        }
-    }
-
-    updatePaymentStatusInLocalStorage(cleanCPF, status) {
-        try {
-            const leads = JSON.parse(localStorage.getItem('leads') || '[]');
-            const leadIndex = leads.findIndex(l => l.cpf && l.cpf.replace(/[^\d]/g, '') === cleanCPF);
-            
-            if (leadIndex !== -1) {
-                leads[leadIndex].status_pagamento = status;
-                leads[leadIndex].updated_at = new Date().toISOString();
-                localStorage.setItem('leads', JSON.stringify(leads));
-                
-                console.log('✅ Status de pagamento atualizado no localStorage:', status);
-                return { success: true, data: leads[leadIndex] };
-            } else {
-                console.log('❌ Lead não encontrado para atualizar status de pagamento');
-                return { success: false, error: 'Lead não encontrado' };
-            }
-        } catch (error) {
-            console.error('❌ Erro ao atualizar status de pagamento no localStorage:', error);
-            return { success: false, error: error.message };
-        }
-    }
-
-    async updateLeadStage(cpf, stage) {
-        try {
-            const cleanCPF = cpf.replace(/[^\d]/g, '');
-            
-            // 🎯 PAINEL CENTRALIZADO: Etapas controladas pelo painel
-            console.log('🎯 Atualizando etapa via painel centralizado:', stage);
-            return this.updateLeadStageInLocalStorage(cleanCPF, stage);
-            
-        } catch (error) {
-            console.error('❌ Erro ao atualizar etapa do lead:', error);
-            return this.updateLeadStageInLocalStorage(cpf, stage);
-        }
-    }
-
-    updateLeadStageInLocalStorage(cleanCPF, stage) {
-        try {
-            const leads = JSON.parse(localStorage.getItem('leads') || '[]');
-            const leadIndex = leads.findIndex(l => l.cpf && l.cpf.replace(/[^\d]/g, '') === cleanCPF);
-            
-            if (leadIndex !== -1) {
-                leads[leadIndex].etapa_atual = stage;
-                leads[leadIndex].updated_at = new Date().toISOString();
-                localStorage.setItem('leads', JSON.stringify(leads));
-                
-                console.log('✅ Etapa do lead atualizada no localStorage:', stage);
-                return { success: true, data: leads[leadIndex] };
-            } else {
-                console.log('❌ Lead não encontrado para atualizar etapa');
-                return { success: false, error: 'Lead não encontrado' };
-            }
-        } catch (error) {
-            console.error('❌ Erro ao atualizar etapa do lead no localStorage:', error);
-            return { success: false, error: error.message };
-        }
-    }
-
-    async syncLeadToSupabase(leadData) {
         if (!this.supabase) {
-            console.warn('⚠️ Supabase não disponível para sincronização');
+            console.error('❌ Supabase não disponível');
             return { success: false, error: 'Supabase não configurado' };
         }
 
         try {
-            console.log('🔄 Sincronizando lead para Supabase:', leadData.cpf);
+            console.log('📝 Criando lead no Supabase:', leadData);
             
             const { data, error } = await this.supabase
                 .from('leads')
-                .upsert({
+                .insert({
                     nome_completo: leadData.nome_completo,
                     cpf: leadData.cpf.replace(/[^\d]/g, ''),
                     email: leadData.email,
@@ -188,104 +96,303 @@ export class DatabaseService {
                     etapa_atual: leadData.etapa_atual || 1,
                     status_pagamento: leadData.status_pagamento || 'pendente',
                     order_bumps: leadData.order_bumps || [],
-                    updated_at: new Date().toISOString()
-                }, {
-                    onConflict: 'cpf'
+                    data_compra: leadData.data_compra || new Date().toISOString()
                 })
                 .select()
                 .single();
             
             if (error) {
-                console.error('❌ Erro ao sincronizar com Supabase:', error);
+                console.error('❌ Erro ao criar lead no Supabase:', error);
                 return { success: false, error: error.message };
             }
             
-            console.log('✅ Lead sincronizado com Supabase:', data);
+            console.log('✅ Lead criado no Supabase:', data);
             return { success: true, data: data };
             
         } catch (error) {
-            console.error('❌ Erro na sincronização:', error);
+            console.error('❌ Erro na criação do lead:', error);
             return { success: false, error: error.message };
         }
     }
 
-    async syncAllLeadsToSupabase() {
+    async updatePaymentStatus(cpf, status) {
+        if (!this.supabase) {
+            console.error('❌ Supabase não disponível');
+            return { success: false, error: 'Supabase não configurado' };
+        }
+
         try {
-            const leads = JSON.parse(localStorage.getItem('leads') || '[]');
-            console.log(`🔄 Sincronizando ${leads.length} leads para Supabase...`);
+            const cleanCPF = cpf.replace(/[^\d]/g, '');
+            console.log('💳 Atualizando status de pagamento no Supabase:', { cpf: cleanCPF, status });
             
-            const results = {
-                success: 0,
-                errors: 0,
-                total: leads.length
-            };
+            const { data, error } = await this.supabase
+                .from('leads')
+                .update({
+                    status_pagamento: status,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('cpf', cleanCPF)
+                .select()
+                .single();
             
-            for (const lead of leads) {
-                const result = await this.syncLeadToSupabase(lead);
-                if (result.success) {
-                    results.success++;
-                } else {
-                    results.errors++;
-                }
+            if (error) {
+                console.error('❌ Erro ao atualizar status de pagamento:', error);
+                return { success: false, error: error.message };
             }
             
-            console.log('📊 Sincronização completa:', results);
-            return results;
+            console.log('✅ Status de pagamento atualizado no Supabase:', data);
+            return { success: true, data: data };
             
         } catch (error) {
-            console.error('❌ Erro na sincronização em massa:', error);
-            return { success: 0, errors: 1, total: 0, error: error.message };
-        }
-    }
-    async syncAllLeadsToSupabase() {
-        try {
-            const leads = JSON.parse(localStorage.getItem('leads') || '[]');
-            console.log(`🔄 Sincronizando ${leads.length} leads para Supabase...`);
-            
-            const results = {
-                success: 0,
-                errors: 0,
-                total: leads.length
-            };
-            
-            for (const lead of leads) {
-                const result = await this.syncLeadToSupabase(lead);
-                if (result.success) {
-                    results.success++;
-                } else {
-                    results.errors++;
-                }
-            }
-            
-            console.log('📊 Sincronização completa:', results);
-            return results;
-            
-        } catch (error) {
-            console.error('❌ Erro na sincronização em massa:', error);
-            return { success: 0, errors: 1, total: 0, error: error.message };
-        }
-    }
-
-    async getData() {
-        try {
-            // 🎯 PAINEL CENTRALIZADO: Fonte única de dados
-            console.log('🎯 Obtendo dados via painel centralizado');
-            return this.getDataFromLocalStorage();
-            
-        } catch (error) {
-            console.error('❌ Erro ao obter dados:', error);
-            return this.getDataFromLocalStorage();
-        }
-    }
-
-    getDataFromLocalStorage() {
-        try {
-            const leads = JSON.parse(localStorage.getItem('leads') || '[]');
-            console.log(`📊 ${leads.length} leads encontrados no localStorage`);
-            return { success: true, data: leads };
-        } catch (error) {
-            console.error('❌ Erro ao obter dados do localStorage:', error);
+            console.error('❌ Erro na atualização do status:', error);
             return { success: false, error: error.message };
         }
+    }
+
+    async updateLeadStage(cpf, stage) {
+        if (!this.supabase) {
+            console.error('❌ Supabase não disponível');
+            return { success: false, error: 'Supabase não configurado' };
+        }
+
+        try {
+            const cleanCPF = cpf.replace(/[^\d]/g, '');
+            console.log('📊 Atualizando etapa do lead no Supabase:', { cpf: cleanCPF, stage });
+            
+            const { data, error } = await this.supabase
+                .from('leads')
+                .update({
+                    etapa_atual: stage,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('cpf', cleanCPF)
+                .select()
+                .single();
+            
+            if (error) {
+                console.error('❌ Erro ao atualizar etapa do lead:', error);
+                return { success: false, error: error.message };
+            }
+            
+            console.log('✅ Etapa do lead atualizada no Supabase:', data);
+            return { success: true, data: data };
+            
+        } catch (error) {
+            console.error('❌ Erro na atualização da etapa:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    async getAllLeads() {
+        if (!this.supabase) {
+            console.error('❌ Supabase não disponível');
+            return { success: false, error: 'Supabase não configurado' };
+        }
+
+        try {
+            console.log('📊 Buscando todos os leads no Supabase...');
+            
+            const { data, error } = await this.supabase
+                .from('leads')
+                .select('*')
+                .order('created_at', { ascending: false });
+            
+            if (error) {
+                console.error('❌ Erro ao buscar leads:', error);
+                return { success: false, error: error.message };
+            }
+            
+            console.log(`✅ ${data.length} leads encontrados no Supabase`);
+            return { success: true, data: data };
+            
+        } catch (error) {
+            console.error('❌ Erro na busca dos leads:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    async updateLead(leadId, updateData) {
+        if (!this.supabase) {
+            console.error('❌ Supabase não disponível');
+            return { success: false, error: 'Supabase não configurado' };
+        }
+
+        try {
+            console.log('📝 Atualizando lead no Supabase:', { leadId, updateData });
+            
+            const { data, error } = await this.supabase
+                .from('leads')
+                .update({
+                    ...updateData,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', leadId)
+                .select()
+                .single();
+            
+            if (error) {
+                console.error('❌ Erro ao atualizar lead:', error);
+                return { success: false, error: error.message };
+            }
+            
+            console.log('✅ Lead atualizado no Supabase:', data);
+            return { success: true, data: data };
+            
+        } catch (error) {
+            console.error('❌ Erro na atualização do lead:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    async deleteLead(leadId) {
+        if (!this.supabase) {
+            console.error('❌ Supabase não disponível');
+            return { success: false, error: 'Supabase não configurado' };
+        }
+
+        try {
+            console.log('🗑️ Excluindo lead do Supabase:', leadId);
+            
+            const { error } = await this.supabase
+                .from('leads')
+                .delete()
+                .eq('id', leadId);
+            
+            if (error) {
+                console.error('❌ Erro ao excluir lead:', error);
+                return { success: false, error: error.message };
+            }
+            
+            console.log('✅ Lead excluído do Supabase');
+            return { success: true };
+            
+        } catch (error) {
+            console.error('❌ Erro na exclusão do lead:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    async bulkUpdateLeads(leadIds, updateData) {
+        if (!this.supabase) {
+            console.error('❌ Supabase não disponível');
+            return { success: false, error: 'Supabase não configurado' };
+        }
+
+        try {
+            console.log('📊 Atualizando leads em massa no Supabase:', { count: leadIds.length, updateData });
+            
+            const { data, error } = await this.supabase
+                .from('leads')
+                .update({
+                    ...updateData,
+                    updated_at: new Date().toISOString()
+                })
+                .in('id', leadIds)
+                .select();
+            
+            if (error) {
+                console.error('❌ Erro na atualização em massa:', error);
+                return { success: false, error: error.message };
+            }
+            
+            console.log(`✅ ${data.length} leads atualizados no Supabase`);
+            return { success: true, data: data };
+            
+        } catch (error) {
+            console.error('❌ Erro na atualização em massa:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    async testConnection() {
+        if (!this.supabase) {
+            return { success: false, error: 'Supabase não configurado' };
+        }
+
+        try {
+            console.log('🔍 Testando conexão com Supabase...');
+            
+            const { data, error } = await this.supabase
+                .from('leads')
+                .select('count')
+                .limit(1);
+            
+            if (error) {
+                console.error('❌ Erro no teste de conexão:', error);
+                return { success: false, error: error.message };
+            }
+            
+            console.log('✅ Conexão com Supabase OK');
+            return { success: true, message: 'Conexão estabelecida com sucesso' };
+            
+        } catch (error) {
+            console.error('❌ Erro no teste de conexão:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    // REMOVIDO: Todos os métodos de localStorage
+    // O sistema agora usa EXCLUSIVAMENTE o Supabase
+}
+
+export class CPFValidator {
+    static formatCPF(cpf) {
+        const cleanCPF = cpf.replace(/[^\d]/g, '');
+        if (cleanCPF.length <= 11) {
+            return cleanCPF.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+        }
+        return cpf;
+    }
+
+    static cleanCPF(cpf) {
+        return cpf.replace(/[^\d]/g, '');
+    }
+
+    static isValidCPF(cpf) {
+        const cleanCPF = this.cleanCPF(cpf);
+        
+        if (cleanCPF.length !== 11) return false;
+        if (/^(\d)\1{10}$/.test(cleanCPF)) return false;
+        
+        return this.validateCPFDigits(cleanCPF);
+    }
+
+    static validateCPFDigits(cpf) {
+        let sum = 0;
+        for (let i = 0; i < 9; i++) {
+            sum += parseInt(cpf.charAt(i)) * (10 - i);
+        }
+        let remainder = 11 - (sum % 11);
+        let digit1 = remainder >= 10 ? 0 : remainder;
+
+        if (digit1 !== parseInt(cpf.charAt(9))) return false;
+
+        sum = 0;
+        for (let i = 0; i < 10; i++) {
+            sum += parseInt(cpf.charAt(i)) * (11 - i);
+        }
+        remainder = 11 - (sum % 11);
+        let digit2 = remainder >= 10 ? 0 : remainder;
+
+        return digit2 === parseInt(cpf.charAt(10));
+    }
+
+    static applyCPFMask(input) {
+        let value = input.value.replace(/[^\d]/g, '');
+        
+        if (value.length > 11) {
+            value = value.slice(0, 11);
+        }
+        
+        if (value.length > 9) {
+            value = value.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+        } else if (value.length > 6) {
+            value = value.replace(/(\d{3})(\d{3})(\d{3})/, '$1.$2.$3');
+        } else if (value.length > 3) {
+            value = value.replace(/(\d{3})(\d{3})/, '$1.$2');
+        }
+        
+        input.value = value;
+        return value;
     }
 }

@@ -1,14 +1,14 @@
 /**
- * Página de Obrigado - Pós-venda
+ * Página de Obrigado - VERSÃO 16.9: DADOS VIA PAINEL/SUPABASE
  */
-import { DatabaseService } from '../services/database.js';
+import { DatabaseService, CPFValidator } from '../services/database.js';
 import { VegaDataProcessor } from '../utils/vega-data.js';
-import { CPFValidator } from '../utils/cpf-validator.js';
 
 class ObrigadoPage {
     constructor() {
         this.dbService = new DatabaseService();
         this.vegaData = null;
+        console.log('🎉 ObrigadoPage - Dados via Painel/Supabase');
         this.init();
     }
 
@@ -16,13 +16,8 @@ class ObrigadoPage {
         console.log('🎉 Inicializando página de Obrigado');
         
         try {
-            // Processar dados do Vega ou URL
             await this.processVegaData();
-            
-            // Exibir dados na interface
             this.displayOrderData();
-            
-            // Configurar botão de rastreamento
             this.setupTrackingButton();
             
             console.log('✅ Página de Obrigado inicializada com sucesso');
@@ -33,50 +28,59 @@ class ObrigadoPage {
     }
 
     async processVegaData() {
-        // Verificar se há dados do Vega na URL
         if (VegaDataProcessor.isVegaOrigin()) {
             console.log('📦 Processando dados do Vega Checkout');
             this.vegaData = VegaDataProcessor.parseURLParams();
         } else {
-            // Tentar obter CPF da URL para buscar dados existentes
             const urlParams = new URLSearchParams(window.location.search);
             const cpf = urlParams.get('cpf');
             
             if (cpf) {
-                console.log('🔍 Buscando dados existentes para CPF:', cpf);
+                console.log('🔍 Buscando dados no Supabase para CPF:', cpf);
+                
+                // 🎯 BUSCAR NO SUPABASE (dados do painel)
                 const result = await this.dbService.getLeadByCPF(cpf);
                 
                 if (result.success && result.data) {
                     this.vegaData = result.data;
+                    console.log('✅ Dados encontrados no Supabase (via painel)');
                 } else {
-                    // Gerar dados mock se não encontrar
+                    console.log('❌ Lead não encontrado no Supabase, gerando dados mock');
                     this.vegaData = VegaDataProcessor.generateMockVegaData(cpf);
                 }
             } else {
-                // Dados de exemplo se não há parâmetros
                 this.vegaData = VegaDataProcessor.generateMockVegaData('12345678901');
             }
         }
 
-        // Salvar/atualizar no banco de dados
+        // 🎯 SALVAR NO SUPABASE VIA PAINEL
         if (this.vegaData) {
-            await this.saveLeadData();
+            await this.saveLeadToSupabase();
         }
     }
 
-    async saveLeadData() {
+    async saveLeadToSupabase() {
         try {
-            // 🎯 PAINEL CENTRALIZADO: Dados enviados pelo painel
-            console.log('🎯 Enviando dados para painel centralizado...');
-            const result = await this.dbService.createLead(this.vegaData);
+            console.log('💾 Salvando lead no Supabase via painel...');
             
-            if (result.success) {
-                console.log('✅ Lead registrado via painel centralizado');
+            // Verificar se já existe
+            const existingResult = await this.dbService.getLeadByCPF(this.vegaData.cpf);
+            
+            if (existingResult.success && existingResult.data) {
+                console.log('📝 Lead já existe no Supabase, mantendo dados existentes');
             } else {
-                console.warn('⚠️ Erro ao registrar no painel:', result.error);
+                console.log('📝 Criando novo lead no Supabase via painel');
+                const result = await this.dbService.createLead(this.vegaData);
+                
+                if (result.success) {
+                    console.log('✅ Lead salvo no Supabase via painel');
+                } else {
+                    console.warn('⚠️ Erro ao salvar no Supabase:', result.error);
+                }
             }
+            
         } catch (error) {
-            console.error('❌ Erro ao enviar dados para painel:', error);
+            console.error('❌ Erro ao salvar dados do lead:', error);
         }
     }
 
@@ -86,19 +90,15 @@ class ObrigadoPage {
             return;
         }
 
-        // Dados do cliente
         this.updateElement('customerName', this.vegaData.nome_completo);
         this.updateElement('customerCPF', CPFValidator.formatCPF(this.vegaData.cpf));
         this.updateElement('customerEmail', this.vegaData.email || 'Não informado');
         this.updateElement('customerPhone', this.vegaData.telefone || 'Não informado');
         this.updateElement('customerAddress', this.vegaData.endereco || 'Não informado');
-
-        // Dados financeiros
         this.updateElement('totalValue', this.formatCurrency(this.vegaData.valor_total));
         this.updateElement('paymentMethod', this.vegaData.meio_pagamento || 'PIX');
         this.updateElement('purchaseDate', this.formatDate(this.vegaData.data_compra));
 
-        // Produtos
         this.displayProducts();
     }
 
@@ -108,7 +108,6 @@ class ObrigadoPage {
 
         productsList.innerHTML = '';
 
-        // Produto principal (sempre exibido)
         const mainProduct = {
             nome: 'Kit 12 caixas organizadoras + brinde',
             preco: this.vegaData.valor_total || 67.90,
@@ -117,7 +116,6 @@ class ObrigadoPage {
 
         productsList.appendChild(this.createProductElement(mainProduct, true));
 
-        // Order Bumps (se houver)
         if (this.vegaData.order_bumps && this.vegaData.order_bumps.length > 0) {
             this.vegaData.order_bumps.forEach(bump => {
                 productsList.appendChild(this.createProductElement(bump, false));
@@ -189,8 +187,7 @@ class ObrigadoPage {
     showError(message) {
         console.error('❌ Erro:', message);
         
-        // Exibir dados de fallback
-        this.updateElement('customerName', 'Cliente Shopee');
+        this.updateElement('customerName', 'Cliente Logix');
         this.updateElement('customerCPF', '000.000.000-00');
         this.updateElement('customerEmail', 'cliente@email.com');
         this.updateElement('customerPhone', '(11) 99999-9999');
@@ -201,7 +198,6 @@ class ObrigadoPage {
     }
 }
 
-// Inicializar página quando DOM estiver pronto
 document.addEventListener('DOMContentLoaded', () => {
     new ObrigadoPage();
 });
