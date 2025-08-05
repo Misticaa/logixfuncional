@@ -1501,7 +1501,7 @@ class AdminPanel {
             
             if (leadIndex !== -1) {
                 const currentStage = leads[leadIndex].etapa_atual || 1;
-                const newStage = Math.max(1, Math.min(26, currentStage + direction));
+                const newStage = Math.max(1, Math.min(26, currentStage + change));
                 
                 leads[leadIndex].etapa_atual = newStage;
                 leads[leadIndex].updated_at = new Date().toISOString();
