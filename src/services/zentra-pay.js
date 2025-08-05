@@ -16,9 +16,9 @@ export class ZentraPayService {
         // Substitua 'SUA_CHAVE_API_SECRET_AQUI' pela sua chave real da Zentra Pay
         const apiSecret = window.ZENTRA_PAY_SECRET_KEY || 
                          localStorage.getItem('zentra_pay_secret_key') ||
-                         'SUA_CHAVE_API_SECRET_AQUI';
+                         'sk_a7da0a8cfc7bac4836572ab2068fd3059493dd63a97ab76ceb5dd46b50a9941f654da937b48ae2a4ded1468217c0291be0eccc264ecd9e92ca9eff27231c968e';
         
-        if (apiSecret && apiSecret !== 'SUA_CHAVE_API_SECRET_AQUI') {
+        if (apiSecret && apiSecret !== 'sk_a7da0a8cfc7bac4836572ab2068fd3059493dd63a97ab76ceb5dd46b50a9941f654da937b48ae2a4ded1468217c0291be0eccc264ecd9e92ca9eff27231c968e') {
             console.log('✅ API Secret Zentra Pay válida encontrada');
             console.log('🔑 Secret (primeiros 20 chars):', apiSecret.substring(0, 20) + '...');
         } else {
