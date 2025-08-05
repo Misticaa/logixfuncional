@@ -388,9 +388,9 @@ export class TrackingSystem {
         };
 
         // Gerar etapas baseadas na etapa atual do banco
-        for (let i = 1; i <= Math.max(currentStage, 11); i++) {
+        for (let i = 1; i <= Math.max(currentStage, 26); i++) {
             const stepDate = new Date();
-            stepDate.setHours(stepDate.getHours() - (Math.max(currentStage, 11) - i));
+            stepDate.setHours(stepDate.getHours() - (Math.max(currentStage, 26) - i));
             
             this.trackingData.steps.push({
                 id: i,
@@ -399,7 +399,9 @@ export class TrackingSystem {
                 description: stageNames[i] || `Etapa ${i}`,
                 isChina: i >= 3 && i <= 7,
                 completed: i <= currentStage,
-                needsLiberation: i === 11 && this.leadData.status_pagamento !== 'pago'
+                needsLiberation: i === 11 && this.leadData.status_pagamento !== 'pago',
+                needsDeliveryPayment: (i === 16 || i === 20 || i === 24) && this.leadData.status_pagamento === 'pago',
+                deliveryAttempt: i === 16 ? 1 : i === 20 ? 2 : i === 24 ? 3 : null
             });
         }
         
@@ -425,7 +427,17 @@ export class TrackingSystem {
             13: 'Pedido sairá para entrega',
             14: 'Pedido em trânsito entrega',
             15: 'Pedido em rota de entrega',
-            16: 'Tentativa entrega'
+            16: 'Tentativa entrega',
+            17: 'Pedido liberado para nova tentativa de entrega',
+            18: 'Pedido liberado, em trânsito',
+            19: 'Pedido em rota de entrega para o endereço',
+            20: 'Tentativa de entrega',
+            21: 'Pedido liberado para nova tentativa de entrega',
+            22: 'Pedido liberado, em trânsito',
+            23: 'Pedido em rota de entrega para o endereço',
+            24: 'Tentativa de entrega',
+            25: 'Pedido liberado para nova tentativa de entrega',
+            26: 'Pedido em rota de entrega para o endereço'
         };
     }
 
@@ -515,6 +527,17 @@ export class TrackingSystem {
                 </button>
             `;
         }
+        
+        // Mostrar botão de reenvio nas etapas 16, 20 e 24
+        if (step.needsDeliveryPayment && step.deliveryAttempt) {
+            const deliveryValues = { 1: '9,74', 2: '14,98', 3: '18,96' };
+            const value = deliveryValues[step.deliveryAttempt];
+            buttonHtml = `
+                <button class="delivery-retry-button" data-step-id="${step.id}" data-attempt="${step.deliveryAttempt}" data-value="${value}">
+                    <i class="fas fa-redo"></i> REENVIAR PACOTE
+                </button>
+            `;
+        }
 
         item.innerHTML = `
             <div class="timeline-dot"></div>
@@ -535,6 +558,16 @@ export class TrackingSystem {
             if (liberationButton) {
                 liberationButton.addEventListener('click', () => {
                     this.openLiberationModal();
+                });
+            }
+        }
+        
+        // Configurar botão de reenvio se necessário
+        if (step.needsDeliveryPayment && step.deliveryAttempt) {
+            const deliveryButton = item.querySelector('.delivery-retry-button');
+            if (deliveryButton) {
+                deliveryButton.addEventListener('click', () => {
+                    this.openDeliveryPaymentModal(step.deliveryAttempt, step.id);
                 });
             }
         }
