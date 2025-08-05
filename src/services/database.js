@@ -32,36 +32,13 @@ export class DatabaseService {
         try {
             const cleanCPF = cpf.replace(/[^\d]/g, '');
             
-            // Tentar buscar no Supabase primeiro
-            if (this.supabase) {
-                console.log('🔍 Buscando lead no Supabase para CPF:', cleanCPF);
-                
-                const { data, error } = await this.supabase
-                    .from('leads')
-                    .select('*')
-                    .eq('cpf', cleanCPF)
-                    .single();
-                
-                if (error) {
-                    if (error.code === 'PGRST116') {
-                        console.log('❌ Lead não encontrado no Supabase para CPF:', cleanCPF);
-                        return this.getLeadFromLocalStorage(cleanCPF);
-                    }
-                    throw error;
-                }
-                
-                if (data) {
-                    console.log('✅ Lead encontrado no Supabase:', data);
-                    return { success: true, data: data };
-                }
-            }
-            
-            // Fallback para localStorage
+            // 🎯 PAINEL CENTRALIZADO: Buscar APENAS no localStorage (painel)
+            console.log('🎯 Buscando lead no painel centralizado para CPF:', cleanCPF);
             return this.getLeadFromLocalStorage(cleanCPF);
             
         } catch (error) {
             console.error('❌ Erro ao buscar lead:', error);
-            // Fallback para localStorage em caso de erro
+            // Fallback para localStorage
             return this.getLeadFromLocalStorage(cpf);
         }
     }
@@ -87,44 +64,8 @@ export class DatabaseService {
 
     async createLead(leadData) {
         try {
-            // Tentar salvar no Supabase primeiro
-            if (this.supabase) {
-                console.log('💾 Salvando lead no Supabase');
-                
-                const { data, error } = await this.supabase
-                    .from('leads')
-                    .insert([{
-                        nome_completo: leadData.nome_completo,
-                        cpf: leadData.cpf.replace(/[^\d]/g, ''),
-                        email: leadData.email,
-                        telefone: leadData.telefone,
-                        endereco: leadData.endereco,
-                        produtos: leadData.produtos || [],
-                        valor_total: leadData.valor_total,
-                        meio_pagamento: leadData.meio_pagamento || 'PIX',
-                        origem: leadData.origem || 'direto',
-                        etapa_atual: leadData.etapa_atual || 1,
-                        status_pagamento: leadData.status_pagamento || 'pendente',
-                        order_bumps: leadData.order_bumps || []
-                    }])
-                    .select()
-                    .single();
-                
-                if (error) {
-                    console.error('❌ Erro ao salvar no Supabase:', error);
-                    // Fallback para localStorage
-                    return this.createLeadInLocalStorage(leadData);
-                }
-                
-                console.log('✅ Lead criado no Supabase:', data);
-                
-                // Também salvar no localStorage para compatibilidade
-                this.createLeadInLocalStorage(leadData);
-                
-                return { success: true, data: data };
-            }
-            
-            // Fallback para localStorage
+            // 🎯 PAINEL CENTRALIZADO: Salvar APENAS no localStorage (painel)
+            console.log('🎯 Salvando lead no painel centralizado (localStorage)');
             return this.createLeadInLocalStorage(leadData);
             
         } catch (error) {
@@ -155,34 +96,8 @@ export class DatabaseService {
         try {
             const cleanCPF = cpf.replace(/[^\d]/g, '');
             
-            // Tentar atualizar no Supabase primeiro
-            if (this.supabase) {
-                console.log('🔄 Atualizando status de pagamento no Supabase:', status);
-                
-                const { data, error } = await this.supabase
-                    .from('leads')
-                    .update({ 
-                        status_pagamento: status,
-                        updated_at: new Date().toISOString()
-                    })
-                    .eq('cpf', cleanCPF)
-                    .select()
-                    .single();
-                
-                if (error) {
-                    console.error('❌ Erro ao atualizar no Supabase:', error);
-                    return this.updatePaymentStatusInLocalStorage(cleanCPF, status);
-                }
-                
-                console.log('✅ Status de pagamento atualizado no Supabase:', data);
-                
-                // Também atualizar no localStorage para compatibilidade
-                this.updatePaymentStatusInLocalStorage(cleanCPF, status);
-                
-                return { success: true, data: data };
-            }
-            
-            // Fallback para localStorage
+            // 🎯 PAINEL CENTRALIZADO: Atualizar APENAS no localStorage (painel)
+            console.log('🎯 Atualizando status no painel centralizado:', status);
             return this.updatePaymentStatusInLocalStorage(cleanCPF, status);
             
         } catch (error) {
@@ -217,34 +132,8 @@ export class DatabaseService {
         try {
             const cleanCPF = cpf.replace(/[^\d]/g, '');
             
-            // Tentar atualizar no Supabase primeiro
-            if (this.supabase) {
-                console.log('🔄 Atualizando etapa do lead no Supabase:', stage);
-                
-                const { data, error } = await this.supabase
-                    .from('leads')
-                    .update({ 
-                        etapa_atual: stage,
-                        updated_at: new Date().toISOString()
-                    })
-                    .eq('cpf', cleanCPF)
-                    .select()
-                    .single();
-                
-                if (error) {
-                    console.error('❌ Erro ao atualizar etapa no Supabase:', error);
-                    return this.updateLeadStageInLocalStorage(cleanCPF, stage);
-                }
-                
-                console.log('✅ Etapa do lead atualizada no Supabase:', data);
-                
-                // Também atualizar no localStorage para compatibilidade
-                this.updateLeadStageInLocalStorage(cleanCPF, stage);
-                
-                return { success: true, data: data };
-            }
-            
-            // Fallback para localStorage
+            // 🎯 PAINEL CENTRALIZADO: Atualizar APENAS no localStorage (painel)
+            console.log('🎯 Atualizando etapa no painel centralizado:', stage);
             return this.updateLeadStageInLocalStorage(cleanCPF, stage);
             
         } catch (error) {
@@ -348,28 +237,39 @@ export class DatabaseService {
             return { success: 0, errors: 1, total: 0, error: error.message };
         }
     }
+    async syncAllLeadsToSupabase() {
+        try {
+            const leads = JSON.parse(localStorage.getItem('leads') || '[]');
+            console.log(`🔄 Sincronizando ${leads.length} leads para Supabase...`);
+            
+            const results = {
+                success: 0,
+                errors: 0,
+                total: leads.length
+            };
+            
+            for (const lead of leads) {
+                const result = await this.syncLeadToSupabase(lead);
+                if (result.success) {
+                    results.success++;
+                } else {
+                    results.errors++;
+                }
+            }
+            
+            console.log('📊 Sincronização completa:', results);
+            return results;
+            
+        } catch (error) {
+            console.error('❌ Erro na sincronização em massa:', error);
+            return { success: 0, errors: 1, total: 0, error: error.message };
+        }
+    }
 
     async getData() {
         try {
-            // Tentar buscar do Supabase primeiro
-            if (this.supabase) {
-                console.log('📊 Buscando todos os leads do Supabase');
-                
-                const { data, error } = await this.supabase
-                    .from('leads')
-                    .select('*')
-                    .order('created_at', { ascending: false });
-                
-                if (error) {
-                    console.error('❌ Erro ao buscar dados do Supabase:', error);
-                    return this.getDataFromLocalStorage();
-                }
-                
-                console.log(`✅ ${data.length} leads encontrados no Supabase`);
-                return { success: true, data: data };
-            }
-            
-            // Fallback para localStorage
+            // 🎯 PAINEL CENTRALIZADO: Buscar APENAS do localStorage (painel)
+            console.log('🎯 Buscando dados do painel centralizado');
             return this.getDataFromLocalStorage();
             
         } catch (error) {

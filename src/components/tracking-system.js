@@ -103,13 +103,13 @@ export class TrackingSystem {
         this.showLoadingNotification();
         
         try {
-            // 🔍 CORREÇÃO: Buscar dados do lead no Supabase primeiro
-            console.log('🔍 Buscando lead no banco de dados...');
-            const leadResult = await this.dbService.getLeadByCPF(this.currentCPF);
+            // 🎯 PAINEL CENTRALIZADO: Buscar dados APENAS do painel (localStorage)
+            console.log('🎯 Buscando dados do painel centralizado...');
+            const leadResult = await this.dbService.getLeadFromLocalStorage(this.currentCPF);
             
             if (leadResult.success && leadResult.data) {
-                // ✅ Lead encontrado no Supabase - usar dados completos
-                console.log('✅ Lead encontrado no banco de dados:', leadResult.data);
+                // ✅ Lead encontrado no painel - usar dados completos
+                console.log('✅ Lead encontrado no painel:', leadResult.data);
                 
                 this.userData = {
                     nome: leadResult.data.nome_completo,
@@ -123,7 +123,7 @@ export class TrackingSystem {
                 
                 this.leadData = leadResult.data;
                 
-                console.log('📦 Dados completos do usuário (Supabase):', {
+                console.log('📦 Dados completos do usuário (Painel):', {
                     nome: this.userData.nome,
                     cpf: this.userData.cpf,
                     email: this.userData.email,
@@ -135,8 +135,8 @@ export class TrackingSystem {
                 this.closeLoadingNotification();
                 this.displayResults();
             } else {
-                // ⚠️ Lead não encontrado no Supabase - buscar dados via API externa
-                console.log('🌐 Lead não encontrado no banco, buscando dados via API...');
+                // ⚠️ Lead não encontrado no painel - buscar dados via API externa
+                console.log('🌐 Lead não encontrado no painel, buscando dados via API...');
                 const result = await this.dataService.fetchCPFData(this.currentCPF);
                 
                 if (result && result.DADOS) {
