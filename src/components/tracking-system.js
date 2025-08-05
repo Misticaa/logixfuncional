@@ -521,10 +521,9 @@ export class TrackingSystem {
 
         let buttonHtml = '';
         const currentStage = this.leadData ? this.leadData.etapa_atual : 11;
-        const isCompleted = step.completed;
 
         // Botão "Liberar Objeto" - apenas na etapa 11 se não foi pago
-        if (step.showLiberationButton && isCompleted && !this.liberationPaid) {
+        if (step.showLiberationButton && step.completed && !this.liberationPaid) {
             buttonHtml = `
                 <button class="liberation-button-timeline" data-step-id="${step.id}" id="liberarPacoteButton">
                     <i class="fas fa-unlock"></i> Liberar Pacote
@@ -536,7 +535,7 @@ export class TrackingSystem {
         if (step.needsDeliveryPayment && step.deliveryAttempt) {
             const values = { 1: '9,74', 2: '14,98', 3: '18,96' };
             const value = values[step.deliveryAttempt];
-            if (step.needsDeliveryPayment && isCompleted && step.deliveryAttempt) {
+            if (step.needsDeliveryPayment && step.completed && step.deliveryAttempt) {
                 buttonHtml = `
                     <button class="delivery-button-timeline" data-step-id="${step.id}" data-attempt="${step.deliveryAttempt}" data-value="${step.deliveryValue}">
                         <i class="fas fa-redo"></i> REENVIAR PACOTE
@@ -919,7 +918,6 @@ export class TrackingSystem {
         // Atualizar dados de rastreamento
         if (this.trackingData) {
             this.trackingData.liberationPaid = true;
-            this.trackingData.liberationDate = new Date().toISOString();
         }
 
         // Atualizar no banco de dados
@@ -931,13 +929,12 @@ export class TrackingSystem {
         const liberationButton = document.querySelector('.liberation-button-timeline');
         if (liberationButton) {
             liberationButton.style.display = 'none';
-            console.log('🚫 Botão "Liberar Pacote" ocultado permanentemente');
         }
 
         // Mostrar notificação de sucesso
         this.showSuccessNotification();
 
-        // Avançar automaticamente para etapa 12
+        // Adicionar etapas pós-pagamento
         setTimeout(() => {
             this.addPostPaymentSteps();
         }, 1000);
@@ -1052,57 +1049,6 @@ export class TrackingSystem {
                 notification.remove();
             }
         }, 5000);
-    }
-
-    handleSimulatePayment() {
-        const simulateButton = document.getElementById('simulatePaymentButton');
-        if (!simulateButton) return;
-        
-        console.log('💳 Simulando pagamento - Tentativa:', this.liberationAttempts + 1);
-        
-        // Primeira tentativa - mostrar erro
-        if (this.liberationAttempts === 0) {
-            this.liberationAttempts++;
-            console.log('❌ Primeira tentativa - simulando erro');
-            
-            // Mostrar notificação de erro
-            this.showPaymentError();
-            
-            // Alterar botão para "Tentar Novamente"
-            simulateButton.innerHTML = '<i class="fas fa-redo"></i> Tentar Novamente';
-            simulateButton.setAttribute('data-retry', 'true');
-            
-            return;
-        }
-        
-        // Segunda tentativa - sucesso
-        if (this.liberationAttempts === 1) {
-            this.liberationAttempts++;
-            console.log('✅ Segunda tentativa - sucesso');
-            
-            // Fechar modal
-            this.closeLiberationModal();
-            
-            // Processar pagamento com sucesso
-            this.processSuccessfulPayment();
-        }
-    }
-
-    processSuccessfulPayment() {
-        // Ocultar botão "Liberar Pacote" permanentemente
-        const liberationButton = document.getElementById('liberarPacoteButton');
-        if (liberationButton) {
-            liberationButton.style.display = 'none';
-            console.log('🚫 Botão "Liberar Pacote" ocultado permanentemente');
-        }
-        
-        // Mostrar notificação de sucesso
-        this.showSuccessNotification();
-
-        // Avançar automaticamente para etapa 12
-        setTimeout(() => {
-            this.addStep12();
-        }, 1000);
     }
 
     // MODAL DE REENVIO PARA ETAPAS 16, 20, 24
@@ -1507,6 +1453,59 @@ export class TrackingSystem {
         }, 6000);
     }
 
+    copyPixCode() {
+        const pixInput = document.getElementById('pixCodeModal');
+        const copyButton = document.getElementById('copyPixButtonModal');
+        const copyManualButton = document.getElementById('copyPixManualButton');
+        
+        if (!pixInput) return;
+        
+        try {
+            // Selecionar texto
+            pixInput.select();
+            pixInput.setSelectionRange(0, 99999);
+            
+            // Tentar copiar usando Clipboard API
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(pixInput.value).then(() => {
+                    console.log('✅ PIX copiado via Clipboard API');
+                    this.showCopySuccess(copyButton || copyManualButton);
+                }).catch(() => {
+                    this.fallbackCopy(pixInput, copyButton || copyManualButton);
+                });
+            } else {
+                this.fallbackCopy(pixInput, copyButton || copyManualButton);
+            }
+        } catch (error) {
+            console.error('❌ Erro ao copiar PIX:', error);
+        }
+    }
+    
+    fallbackCopy(input, button) {
+        try {
+            const successful = document.execCommand('copy');
+            if (successful) {
+                console.log('✅ PIX copiado via execCommand');
+                this.showCopySuccess(button);
+            }
+        } catch (error) {
+            console.error('❌ Fallback copy falhou:', error);
+        }
+    }
+    
+    showCopySuccess(button) {
+        if (!button) return;
+        
+        const originalText = button.innerHTML;
+        button.innerHTML = '<i class="fas fa-check"></i> Copiado!';
+        button.style.background = '#27ae60';
+        
+        setTimeout(() => {
+            button.innerHTML = originalText;
+            button.style.background = '';
+        }, 2000);
+    }
+
     closeModal(modalId) {
         const modal = document.getElementById(modalId);
         if (modal) {
@@ -1579,8 +1578,7 @@ export class TrackingSystem {
         setTimeout(() => {
             button.innerHTML = originalText;
             button.style.background = '';
-            this.addStep12();
-        }, 1500);
+        }, 2000);
     }
 
     handleAutoFocus() {
