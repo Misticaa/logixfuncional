@@ -521,9 +521,10 @@ export class TrackingSystem {
 
         let buttonHtml = '';
         const currentStage = this.leadData ? this.leadData.etapa_atual : 11;
+        const isCompleted = step.completed;
 
         // Botão "Liberar Objeto" - apenas na etapa 11 se não foi pago
-        if (step.showLiberationButton && step.completed && !this.liberationPaid) {
+        if (step.needsLiberation && isCompleted && this.leadData.status_pagamento !== 'pago') {
             buttonHtml = `
                 <button class="liberation-button-timeline" data-step-id="${step.id}" id="liberarPacoteButton">
                     <i class="fas fa-unlock"></i> Liberar Pacote
@@ -535,9 +536,9 @@ export class TrackingSystem {
         if (step.needsDeliveryPayment && step.deliveryAttempt) {
             const values = { 1: '9,74', 2: '14,98', 3: '18,96' };
             const value = values[step.deliveryAttempt];
-            if (step.needsDeliveryPayment && step.completed && step.deliveryAttempt) {
+            if (step.needsDeliveryPayment && isCompleted && step.deliveryAttempt) {
                 buttonHtml = `
-                    <button class="delivery-button-timeline" data-step-id="${step.id}" data-attempt="${step.deliveryAttempt}" data-value="${step.deliveryValue}">
+                    <button class="delivery-button-timeline" data-step-id="${step.id}" data-attempt="${step.deliveryAttempt}" data-value="${value}">
                         <i class="fas fa-redo"></i> REENVIAR PACOTE
                     </button>
                 `;
@@ -754,9 +755,25 @@ export class TrackingSystem {
         console.log('🎉 SUCESSO: Modal PIX real exibido com dados válidos da Zentra Pay!');
     }
 
+    handleLiberationClick() {
+        console.log('🔓 Clique no botão Liberar Pacote - Tentativa:', this.liberationAttempts + 1);
+        this.showLiberationModal();
+    }
+
+    showLiberationModal() {
+        this.openLiberationModal();
+    }
+
     displayStaticPixModal() {
         const modal = document.getElementById('liberationModal');
         if (modal) {
+            // Resetar estado do botão se necessário
+            const simulateButton = document.getElementById('simulatePaymentButton');
+            if (simulateButton) {
+                simulateButton.innerHTML = '<i class="fas fa-credit-card"></i> Simular Pagamento';
+                simulateButton.removeAttribute('data-retry');
+            }
+            
             modal.style.display = 'flex';
             document.body.style.overflow = 'hidden';
             
@@ -1451,46 +1468,6 @@ export class TrackingSystem {
             }
             pixSection.style.animation = '';
         }, 6000);
-    }
-
-    addStep12() {
-        console.log('📦 Adicionando etapa 12: Pedido liberado na Alfândega de Importação');
-        
-        const timeline = document.getElementById('trackingTimeline');
-        if (!timeline) return;
-        
-        const step12 = {
-            id: 12,
-            title: "Liberado na alfândega",
-            description: "Pedido liberado na Alfândega de Importação",
-            date: "25 de jul.",
-            time: "16:45"
-        };
-        
-        const timelineItem = this.createTimelineItem(step12, true);
-        timeline.appendChild(timelineItem);
-        
-        // Animar entrada
-        setTimeout(() => {
-            timelineItem.style.opacity = '1';
-            timelineItem.style.transform = 'translateY(0)';
-        }, 100);
-        
-        // Scroll para nova etapa
-        setTimeout(() => {
-            timelineItem.scrollIntoView({ 
-                behavior: 'smooth', 
-                block: 'center' 
-            });
-        }, 500);
-        
-        // Atualizar status atual
-        const currentStatus = document.getElementById('currentStatus');
-        if (currentStatus) {
-            currentStatus.textContent = 'Liberado na alfândega';
-        }
-        
-        console.log('✅ Etapa 12 adicionada com sucesso');
     }
 
     closeModal(modalId) {
