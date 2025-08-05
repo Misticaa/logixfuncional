@@ -11,6 +11,7 @@ export class TrackingSystem {
         this.isInitialized = false;
         this.currentCPF = null;
         this.userData = null;
+        this.leadData = null;
         this.trackingData = null;
         this.dataService = new DataService();
         this.zentraPayService = new ZentraPayService();
