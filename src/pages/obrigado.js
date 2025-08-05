@@ -3,11 +3,9 @@
  */
 import { VegaDataProcessor } from '../utils/vega-data.js';
 import { CPFValidator } from '../utils/cpf-validator.js';
-import { SupabaseService } from '../services/supabase-service.js';
 
 class ObrigadoPage {
     constructor() {
-        this.dbService = new SupabaseService();
         this.vegaData = null;
         this.init();
     }
@@ -44,7 +42,6 @@ class ObrigadoPage {
             
             if (cpf) {
                 console.log('🔍 Buscando dados existentes para CPF:', cpf);
-                // Buscar no Supabase primeiro
                 const result = await this.dbService.getLeadByCPF(cpf);
                 
                 if (result.success && result.data) {
@@ -67,32 +64,12 @@ class ObrigadoPage {
 
     async saveLeadData() {
         try {
-            // Salvar no Supabase primeiro
-            const supabaseResult = await this.dbService.saveLead(this.vegaData);
-            
-            if (supabaseResult.success) {
-                console.log('✅ Lead salvo no Supabase com sucesso');
-            } else {
-                console.warn('⚠️ Erro ao salvar no Supabase, salvando no localStorage:', supabaseResult.error);
-            }
-            
-            // Sempre salvar no localStorage como backup
-            this.saveToLocalStorage();
-            
-        } catch (error) {
-            console.error('❌ Erro ao salvar dados do lead:', error);
-            // Fallback para localStorage
-            this.saveToLocalStorage();
-        }
-    }
-
-    saveToLocalStorage() {
-        try {
+            // Save to localStorage instead of database
             const leads = JSON.parse(localStorage.getItem('leads') || '[]');
             const existingLeadIndex = leads.findIndex(lead => lead.cpf === this.vegaData.cpf);
             
             if (existingLeadIndex !== -1) {
-                console.log('📝 Atualizando lead no localStorage');
+                console.log('📝 Lead já existe, atualizando dados');
                 leads[existingLeadIndex] = { ...leads[existingLeadIndex], ...this.vegaData };
             } else {
                 console.log('📝 Criando novo lead no localStorage');
@@ -101,9 +78,9 @@ class ObrigadoPage {
             }
             
             localStorage.setItem('leads', JSON.stringify(leads));
-            console.log('✅ Lead salvo no localStorage');
+            console.log('✅ Lead salvo com sucesso no localStorage');
         } catch (error) {
-            console.error('❌ Erro ao salvar no localStorage:', error);
+            console.error('❌ Erro ao salvar dados do lead:', error);
         }
     }
 

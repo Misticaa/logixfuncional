@@ -1,11 +1,13 @@
 /**
- * Painel Administrativo com sincronização automática Supabase
+ * Painel Administrativo - Sistema de Gerenciamento de Leads
  */
-import { SupabaseService } from '../services/supabase-service.js';
+
 import { CPFValidator } from '../utils/cpf-validator.js';
+import { DatabaseService } from '../services/database.js';
 
 class AdminPanel {
     constructor() {
+        this.dbService = new DatabaseService();
         this.leads = [];
         this.filteredLeads = [];
         this.selectedLeads = new Set();
@@ -15,9 +17,9 @@ class AdminPanel {
         this.systemMode = 'auto';
         this.bulkData = [];
         this.bulkResults = null;
-        this.supabaseService = new SupabaseService();
+        this.editingLead = null;
         
-        console.log('🔧 AdminPanel inicializado com Supabase');
+        console.log('🔧 AdminPanel inicializado - Modo Local');
         this.init();
     }
 
@@ -29,7 +31,7 @@ class AdminPanel {
             this.checkLoginStatus();
             
             if (this.isLoggedIn) {
-                await this.loadLeads();
+                this.loadLeads();
                 this.renderLeadsTable();
                 this.updateLeadsCount();
             }
@@ -41,16 +43,19 @@ class AdminPanel {
     }
 
     setupEventListeners() {
+        // Login
         const loginForm = document.getElementById('loginForm');
         if (loginForm) {
             loginForm.addEventListener('submit', (e) => this.handleLogin(e));
         }
 
+        // Logout
         const logoutButton = document.getElementById('logoutButton');
         if (logoutButton) {
             logoutButton.addEventListener('click', () => this.handleLogout());
         }
 
+        // Navigation
         const showLeadsView = document.getElementById('showLeadsView');
         if (showLeadsView) {
             showLeadsView.addEventListener('click', () => this.showView('leadsView'));
@@ -66,32 +71,35 @@ class AdminPanel {
             showBulkAddView.addEventListener('click', () => this.showView('bulkAddView'));
         }
 
+        // Add Lead Form
         const addLeadForm = document.getElementById('addLeadForm');
         if (addLeadForm) {
             addLeadForm.addEventListener('submit', (e) => this.handleAddLead(e));
         }
 
-        const previewBulkDataButton = document.getElementById('previewBulkDataButton');
-        if (previewBulkDataButton) {
-            previewBulkDataButton.addEventListener('click', () => this.previewBulkData());
+        // Bulk Import
+        const previewButton = document.getElementById('previewBulkDataButton');
+        if (previewButton) {
+            previewButton.addEventListener('click', () => this.previewBulkData());
         }
 
-        const clearBulkDataButton = document.getElementById('clearBulkDataButton');
-        if (clearBulkDataButton) {
-            clearBulkDataButton.addEventListener('click', () => this.clearBulkData());
+        const clearButton = document.getElementById('clearBulkDataButton');
+        if (clearButton) {
+            clearButton.addEventListener('click', () => this.clearBulkData());
         }
 
-        const confirmBulkImportButton = document.getElementById('confirmBulkImportButton');
-        if (confirmBulkImportButton) {
-            confirmBulkImportButton.addEventListener('click', () => this.confirmBulkImport());
+        const confirmButton = document.getElementById('confirmBulkImportButton');
+        if (confirmButton) {
+            confirmButton.addEventListener('click', () => this.confirmBulkImport());
         }
 
-        const editBulkDataButton = document.getElementById('editBulkDataButton');
-        if (editBulkDataButton) {
-            editBulkDataButton.addEventListener('click', () => this.editBulkData());
+        const editButton = document.getElementById('editBulkDataButton');
+        if (editButton) {
+            editButton.addEventListener('click', () => this.editBulkData());
         }
 
-        const refreshButton = document.getElementById('refreshButton');
+        // Controls
+        let refreshButton = document.getElementById('refreshButton');
         if (refreshButton) {
             refreshButton.addEventListener('click', () => this.refreshLeads());
         }
@@ -101,6 +109,7 @@ class AdminPanel {
             applyFiltersButton.addEventListener('click', () => this.applyFilters());
         }
 
+        // Mass Actions
         const massNextStage = document.getElementById('massNextStage');
         if (massNextStage) {
             massNextStage.addEventListener('click', () => this.handleMassAction('nextStage'));
@@ -120,10 +129,50 @@ class AdminPanel {
         if (massDeleteLeads) {
             massDeleteLeads.addEventListener('click', () => this.handleMassAction('delete'));
         }
+
+        // Botões de controle do sistema
+        const nextAllButton = document.getElementById('nextAllButton');
+        if (nextAllButton) {
+            nextAllButton.addEventListener('click', () => this.handleSystemAction('nextAll'));
+        }
+
+        const prevAllButton = document.getElementById('prevAllButton');
+        if (prevAllButton) {
+            prevAllButton.addEventListener('click', () => this.handleSystemAction('prevAll'));
+        }
+
+        refreshButton = document.getElementById('refreshButton');
+        if (refreshButton) {
+            refreshButton.addEventListener('click', () => this.handleSystemAction('refresh'));
+        }
+
+        const clearAllButton = document.getElementById('clearAllButton');
+        if (clearAllButton) {
+            clearAllButton.addEventListener('click', () => this.handleSystemAction('clearAll'));
+        }
+
+        // Edit Modal Events
+        const closeEditModal = document.getElementById('closeEditModal');
+        if (closeEditModal) {
+            closeEditModal.addEventListener('click', () => this.closeEditModal());
+        }
+
+        const cancelEdit = document.getElementById('cancelEdit');
+        if (cancelEdit) {
+            cancelEdit.addEventListener('click', () => this.closeEditModal());
+        }
+
+        const editForm = document.getElementById('editForm');
+        if (editForm) {
+            editForm.addEventListener('submit', (e) => this.handleEditSubmit(e));
+        }
+
     }
 
     checkLoginStatus() {
-        if (localStorage.getItem('admin_logged_in') === 'true') {
+        const isLoggedIn = localStorage.getItem('admin_logged_in') === 'true';
+        
+        if (isLoggedIn) {
             this.isLoggedIn = true;
             this.showAdminPanel();
         } else {
@@ -133,6 +182,7 @@ class AdminPanel {
 
     handleLogin(e) {
         e.preventDefault();
+        
         // Allow access without password validation
         this.isLoggedIn = true;
         localStorage.setItem('admin_logged_in', 'true');
@@ -165,73 +215,53 @@ class AdminPanel {
     }
 
     showView(viewId) {
-        document.querySelectorAll('.admin-view').forEach(view => {
+        // Hide all views
+        const views = document.querySelectorAll('.admin-view');
+        views.forEach(view => {
             view.style.display = 'none';
         });
-        
-        document.querySelectorAll('.nav-button').forEach(button => {
+
+        // Remove active class from all nav buttons
+        const navButtons = document.querySelectorAll('.nav-button');
+        navButtons.forEach(button => {
             button.classList.remove('active');
         });
 
-        const view = document.getElementById(viewId);
-        if (view) view.style.display = 'block';
+        // Show selected view
+        const targetView = document.getElementById(viewId);
+        if (targetView) {
+            targetView.style.display = 'block';
+        }
 
-        const navButton = document.getElementById(`show${viewId.charAt(0).toUpperCase() + viewId.slice(1)}`);
-        if (navButton) navButton.classList.add('active');
-    }
-
-    async loadLeads() {
-        try {
-            console.log('📊 Carregando leads do Supabase...');
-            
-            // Tentar carregar do Supabase primeiro
-            if (this.supabaseService.isSupabaseConnected()) {
-                const { data, error } = await this.supabaseService.supabase
-                    .from('leads')
-                    .select('*')
-                    .order('created_at', { ascending: false });
-
-                if (!error && data) {
-                    this.leads = data;
-                    console.log(`📦 ${this.leads.length} leads carregados do Supabase`);
-                    
-                    // Sincronizar com localStorage
-                    localStorage.setItem('leads', JSON.stringify(this.leads));
-                } else {
-                    console.warn('⚠️ Erro ao carregar do Supabase, usando localStorage:', error);
-                    this.loadFromLocalStorage();
-                }
-            } else {
-                console.warn('⚠️ Supabase não conectado, usando localStorage');
-                this.loadFromLocalStorage();
-            }
-            
-            this.filteredLeads = [...this.leads];
-            this.renderLeadsTable();
-            this.updateLeadsCount();
-            
-        } catch (error) {
-            console.error('❌ Erro ao carregar leads:', error);
-            this.loadFromLocalStorage();
+        // Add active class to corresponding nav button
+        const activeButton = document.getElementById(`show${viewId.charAt(0).toUpperCase() + viewId.slice(1)}`);
+        if (activeButton) {
+            activeButton.classList.add('active');
         }
     }
 
-    loadFromLocalStorage() {
+    loadLeads() {
         try {
+            console.log('📊 Carregando leads do localStorage...');
             const storedLeads = localStorage.getItem('leads');
             this.leads = storedLeads ? JSON.parse(storedLeads) : [];
-            console.log(`📦 ${this.leads.length} leads carregados do localStorage (fallback)`);
+            this.filteredLeads = [...this.leads];
+            console.log(`📦 ${this.leads.length} leads carregados do localStorage`);
+            this.renderLeadsTable();
+            this.updateLeadsCount();
         } catch (error) {
-            console.error('❌ Erro ao carregar do localStorage:', error);
+            console.error('❌ Erro ao carregar leads do localStorage:', error);
             this.leads = [];
+            this.filteredLeads = [];
+            this.renderLeadsTable();
+            this.updateLeadsCount();
         }
     }
 
-    async handleAddLead(e) {
+    handleAddLead(e) {
         e.preventDefault();
         
         const formData = new FormData(e.target);
-        
         const leadData = {
             nome_completo: formData.get('nome') || document.getElementById('addLeadNome')?.value,
             cpf: (formData.get('cpf') || document.getElementById('addLeadCPF')?.value)?.replace(/[^\d]/g, ''),
@@ -253,36 +283,12 @@ class AdminPanel {
             updated_at: new Date().toISOString()
         };
 
-        // Salvar no Supabase automaticamente
-        await this.saveLeadToSupabase(leadData);
-        
-        // Recarregar lista
-        await this.loadLeads();
+        // Save to localStorage
+        this.saveLeadToLocalStorage(leadData);
+        this.loadLeads();
         this.showView('leadsView');
         e.target.reset();
         this.showNotification('Lead criado com sucesso!', 'success');
-    }
-
-    async saveLeadToSupabase(leadData) {
-        try {
-            console.log('💾 Salvando lead no Supabase automaticamente...');
-            
-            const result = await this.supabaseService.saveLead(leadData);
-            
-            if (result.success) {
-                console.log('✅ Lead salvo no Supabase');
-            } else {
-                console.warn('⚠️ Erro ao salvar no Supabase:', result.error);
-            }
-            
-            // Sempre salvar no localStorage como backup
-            this.saveLeadToLocalStorage(leadData);
-            
-        } catch (error) {
-            console.error('❌ Erro ao salvar lead:', error);
-            // Fallback para localStorage
-            this.saveLeadToLocalStorage(leadData);
-        }
     }
 
     saveLeadToLocalStorage(leadData) {
@@ -291,9 +297,9 @@ class AdminPanel {
             leadData.id = Date.now().toString();
             leads.push(leadData);
             localStorage.setItem('leads', JSON.stringify(leads));
-            console.log('✅ Lead salvo no localStorage (backup)');
+            console.log('✅ Lead salvo no localStorage');
         } catch (error) {
-            console.error('❌ Erro ao salvar lead no localStorage:', error);
+            console.error('❌ Erro ao salvar lead:', error);
         }
     }
 
@@ -310,6 +316,7 @@ class AdminPanel {
         return `${endereco}, ${numero}${complemento ? ` - ${complemento}` : ''} - ${bairro} - ${cidade}/${estado} - CEP: ${cep} - ${pais}`;
     }
 
+    // Bulk Import Methods
     previewBulkData() {
         const textarea = document.getElementById('bulkDataTextarea');
         if (!textarea || !textarea.value.trim()) {
@@ -328,14 +335,15 @@ class AdminPanel {
 
     parseBulkData(rawData) {
         const lines = rawData.trim().split('\n').filter(line => line.trim());
-        const leads = [];
-        const duplicatesSet = new Set();
+        const parsedData = [];
+        const seenCPFs = new Set();
         const duplicatesRemoved = [];
 
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i].trim();
             if (!line) continue;
 
+            // Split by tabs or multiple spaces
             const fields = line.split(/\t+|\s{2,}/).map(field => field.trim());
             
             if (fields.length < 4) {
@@ -343,16 +351,20 @@ class AdminPanel {
                 continue;
             }
 
-            const [nome, email, telefone, cpfRaw, produto, valor, rua, numero, complemento, bairro, cep, cidade, estado, pais] = fields;
-            const cpf = (cpfRaw || '').replace(/[^\d]/g, '');
-
-            // Verificar duplicatas
-            if (duplicatesSet.has(cpf)) {
-                duplicatesRemoved.push({ nome, cpf });
+            const [nome, email, telefone, cpf, produto, valor, rua, numero, complemento, bairro, cep, cidade, estado, pais] = fields;
+            
+            // Clean CPF
+            const cleanCPF = (cpf || '').replace(/[^\d]/g, '');
+            
+            // Check for internal duplicates
+            if (seenCPFs.has(cleanCPF)) {
+                duplicatesRemoved.push({ nome, cpf: cleanCPF });
                 continue;
             }
-            duplicatesSet.add(cpf);
+            
+            seenCPFs.add(cleanCPF);
 
+            // Build address
             const endereco = this.buildAddressFromFields({
                 rua: rua || '',
                 numero: numero || '',
@@ -364,11 +376,11 @@ class AdminPanel {
                 pais: pais || 'BR'
             });
 
-            leads.push({
+            parsedData.push({
                 nome_completo: nome || '',
                 email: email || '',
                 telefone: telefone || '',
-                cpf: cpf,
+                cpf: cleanCPF,
                 produto: produto || 'Kit 12 caixas organizadoras + brinde',
                 valor_total: parseFloat(valor) || 67.90,
                 endereco: endereco,
@@ -385,10 +397,10 @@ class AdminPanel {
             });
         }
 
-        console.log(`📊 Dados processados: ${leads.length} leads, ${duplicatesRemoved.length} duplicatas removidas`);
+        console.log(`📊 Dados processados: ${parsedData.length} leads, ${duplicatesRemoved.length} duplicatas removidas`);
         
         return {
-            leads: leads,
+            leads: parsedData,
             duplicatesRemoved: duplicatesRemoved
         };
     }
@@ -407,7 +419,8 @@ class AdminPanel {
 
         previewSection.style.display = 'block';
 
-        let html = `
+        // Create preview table
+        let tableHTML = `
             <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
                 <thead>
                     <tr style="background: #f8f9fa;">
@@ -423,9 +436,9 @@ class AdminPanel {
         `;
 
         this.bulkData.leads.forEach((lead, index) => {
-            const rowStyle = index % 2 === 0 ? 'background: #f9f9f9;' : '';
-            html += `
-                <tr style="${rowStyle}">
+            const rowClass = index % 2 === 0 ? 'background: #f9f9f9;' : '';
+            tableHTML += `
+                <tr style="${rowClass}">
                     <td style="padding: 6px; border: 1px solid #ddd;">${lead.nome_completo}</td>
                     <td style="padding: 6px; border: 1px solid #ddd;">${lead.email}</td>
                     <td style="padding: 6px; border: 1px solid #ddd;">${lead.telefone}</td>
@@ -436,25 +449,30 @@ class AdminPanel {
             `;
         });
 
-        html += '</tbody></table>';
+        tableHTML += '</tbody></table>';
 
+        // Add duplicates info if any
         if (this.bulkData.duplicatesRemoved.length > 0) {
-            html += `
+            tableHTML += `
                 <div style="margin-top: 15px; padding: 10px; background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 4px;">
                     <strong>📋 Duplicatas Removidas (${this.bulkData.duplicatesRemoved.length}):</strong>
                     <ul style="margin: 5px 0 0 20px;">
-                        ${this.bulkData.duplicatesRemoved.map(dup => `<li>${dup.nome} - CPF: ${this.formatCPF(dup.cpf)}</li>`).join('')}
+                        ${this.bulkData.duplicatesRemoved.map(dup => 
+                            `<li>${dup.nome} - CPF: ${this.formatCPF(dup.cpf)}</li>`
+                        ).join('')}
                     </ul>
                 </div>
             `;
         }
 
-        previewContainer.innerHTML = html;
+        previewContainer.innerHTML = tableHTML;
 
+        // Update summary
         if (previewSummary) {
             previewSummary.textContent = `${this.bulkData.leads.length} leads para importar${this.bulkData.duplicatesRemoved.length > 0 ? `, ${this.bulkData.duplicatesRemoved.length} duplicatas removidas` : ''}`;
         }
 
+        // Show confirm button
         if (confirmButton) {
             confirmButton.style.display = 'inline-block';
         }
@@ -485,95 +503,82 @@ class AdminPanel {
         }
     }
 
-    async processBulkImport() {
+    processBulkImport() {
         const results = {
             success: [],
             errors: [],
             total: this.bulkData.leads.length
         };
 
-        for (const lead of this.bulkData.leads) {
+        this.bulkData.leads.forEach(leadData => {
             try {
-                const validation = this.validateLeadData(lead);
+                // Validate lead data
+                const validation = this.validateLeadData(leadData);
                 if (!validation.isValid) {
                     results.errors.push({
-                        nome: lead.nome_completo,
-                        cpf: lead.cpf,
+                        nome: leadData.nome_completo,
+                        cpf: leadData.cpf,
                         error: validation.error,
                         type: 'validation'
                     });
-                    continue;
+                    return;
                 }
 
-                // Verificar se CPF já existe no Supabase
-                const existingLead = await this.supabaseService.getLeadByCPF(lead.cpf);
-                if (existingLead.success) {
+                // Check if lead already exists in localStorage
+                const existingLeads = JSON.parse(localStorage.getItem('leads') || '[]');
+                const existingLead = existingLeads.find(lead => lead.cpf === leadData.cpf);
+                if (existingLead) {
                     results.errors.push({
-                        nome: lead.nome_completo,
-                        cpf: lead.cpf,
+                        nome: leadData.nome_completo,
+                        cpf: leadData.cpf,
                         error: 'CPF já existe no sistema',
                         type: 'duplicate'
                     });
-                    continue;
+                    return;
                 }
 
-                // Preparar dados para salvar
-                const leadToSave = {
-                    ...lead,
-                    id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-                    created_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString()
-                };
-
-                // Salvar no Supabase automaticamente
-                const saveResult = await this.supabaseService.saveLead(leadToSave);
+                // Create lead
+                leadData.id = Date.now().toString() + Math.random().toString(36).substr(2, 9);
+                existingLeads.push(leadData);
+                localStorage.setItem('leads', JSON.stringify(existingLeads));
                 
-                if (saveResult.success) {
-                    results.success.push({
-                        nome: lead.nome_completo,
-                        cpf: lead.cpf,
-                        id: leadToSave.id
-                    });
-                } else {
-                    results.errors.push({
-                        nome: lead.nome_completo,
-                        cpf: lead.cpf,
-                        error: saveResult.error,
-                        type: 'database'
-                    });
-                }
-
+                results.success.push({
+                    nome: leadData.nome_completo,
+                    cpf: leadData.cpf,
+                    id: leadData.id
+                });
             } catch (error) {
                 results.errors.push({
-                    nome: lead.nome_completo,
-                    cpf: lead.cpf,
+                    nome: leadData.nome_completo,
+                    cpf: leadData.cpf,
                     error: error.message,
                     type: 'exception'
                 });
             }
-        }
+        });
 
         return results;
     }
 
-    validateLeadData(lead) {
-        if (!lead.nome_completo || lead.nome_completo.trim().length < 2) {
+    validateLeadData(leadData) {
+        // Check required fields
+        if (!leadData.nome_completo || leadData.nome_completo.trim().length < 2) {
             return { isValid: false, error: 'Nome completo é obrigatório (mínimo 2 caracteres)' };
         }
 
-        if (!lead.email || !this.isValidEmail(lead.email)) {
+        if (!leadData.email || !this.isValidEmail(leadData.email)) {
             return { isValid: false, error: 'Email é obrigatório e deve ter formato válido' };
         }
 
-        if (!lead.telefone || lead.telefone.length < 10) {
+        if (!leadData.telefone || leadData.telefone.length < 10) {
             return { isValid: false, error: 'Telefone é obrigatório (mínimo 10 dígitos)' };
         }
 
-        if (!lead.cpf || lead.cpf.length !== 11) {
+        if (!leadData.cpf || leadData.cpf.length !== 11) {
             return { isValid: false, error: 'CPF é obrigatório e deve ter 11 dígitos' };
         }
 
-        if (!this.isValidCPF(lead.cpf)) {
+        if (!this.isValidCPF(leadData.cpf)) {
             return { isValid: false, error: 'CPF inválido (formato ou dígitos verificadores incorretos)' };
         }
 
@@ -581,15 +586,16 @@ class AdminPanel {
     }
 
     isValidCPF(cpf) {
+        // Basic CPF validation
         const cleanCPF = cpf.replace(/[^\d]/g, '');
-        if (cleanCPF.length !== 11 || /^(\d)\1{10}$/.test(cleanCPF)) {
-            return false;
-        }
+        if (cleanCPF.length !== 11) return false;
+        if (/^(\d)\1{10}$/.test(cleanCPF)) return false;
         return true;
     }
 
     isValidEmail(email) {
-        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
     }
 
     displayBulkResults(results) {
@@ -600,12 +606,12 @@ class AdminPanel {
 
         resultsSection.style.display = 'block';
 
-        let html = `
+        let resultsHTML = `
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
         `;
 
-        // Sucessos
-        html += `
+        // Success Section
+        resultsHTML += `
             <div style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 8px; padding: 20px;">
                 <h4 style="color: #155724; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
                     <i class="fas fa-check-circle"></i>
@@ -614,15 +620,16 @@ class AdminPanel {
         `;
 
         if (results.success.length > 0) {
-            html += '<ul style="margin: 0; padding-left: 20px; max-height: 200px; overflow-y: auto;">';
+            resultsHTML += '<ul style="margin: 0; padding-left: 20px; max-height: 200px; overflow-y: auto;">';
             results.success.forEach(item => {
-                html += `<li style="margin-bottom: 5px; color: #155724;">
+                resultsHTML += `<li style="margin-bottom: 5px; color: #155724;">
                     <strong>${item.nome}</strong> - CPF: ${CPFValidator.formatCPF(item.cpf)}
                 </li>`;
             });
-            html += '</ul>';
+            resultsHTML += '</ul>';
 
-            html += `
+            // Add "Ir para Lista" button
+            resultsHTML += `
                 <div style="margin-top: 15px; text-align: center;">
                     <button id="goToLeadsListButton" style="
                         background: #28a745;
@@ -639,13 +646,13 @@ class AdminPanel {
                 </div>
             `;
         } else {
-            html += '<p style="color: #856404; font-style: italic;">Nenhum pedido foi postado com sucesso.</p>';
+            resultsHTML += '<p style="color: #856404; font-style: italic;">Nenhum pedido foi postado com sucesso.</p>';
         }
 
-        html += '</div>';
+        resultsHTML += '</div>';
 
-        // Erros
-        html += `
+        // Error Section
+        resultsHTML += `
             <div style="background: #f8d7da; border: 1px solid #f5c6cb; border-radius: 8px; padding: 20px;">
                 <h4 style="color: #721c24; margin-bottom: 15px; display: flex; align-items: center; gap: 8px;">
                     <i class="fas fa-exclamation-triangle"></i>
@@ -654,7 +661,7 @@ class AdminPanel {
         `;
 
         if (results.errors.length > 0) {
-            html += `
+            resultsHTML += `
                 <div style="max-height: 200px; overflow-y: auto;">
                     <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
                         <thead>
@@ -668,9 +675,9 @@ class AdminPanel {
             `;
 
             results.errors.forEach((error, index) => {
-                const rowStyle = index % 2 === 0 ? 'background: #fdf2f2;' : '';
-                html += `
-                    <tr style="${rowStyle}">
+                const rowClass = index % 2 === 0 ? 'background: #fdf2f2;' : '';
+                resultsHTML += `
+                    <tr style="${rowClass}">
                         <td style="padding: 6px; border: 1px solid #f1b0b7;">${error.nome}</td>
                         <td style="padding: 6px; border: 1px solid #f1b0b7;">${this.formatCPF(error.cpf)}</td>
                         <td style="padding: 6px; border: 1px solid #f1b0b7; color: #721c24;">
@@ -680,15 +687,15 @@ class AdminPanel {
                 `;
             });
 
-            html += '</tbody></table></div>';
+            resultsHTML += '</tbody></table></div>';
         } else {
-            html += '<p style="color: #155724; font-style: italic;">Nenhum erro encontrado! 🎉</p>';
+            resultsHTML += '<p style="color: #155724; font-style: italic;">Nenhum erro encontrado! 🎉</p>';
         }
 
-        html += '</div></div>';
+        resultsHTML += '</div></div>';
 
-        // Resumo
-        html += `
+        // Summary
+        resultsHTML += `
             <div style="background: #e2e3e5; border: 1px solid #d6d8db; border-radius: 8px; padding: 15px; text-align: center;">
                 <h4 style="color: #383d41; margin-bottom: 10px;">📊 Resumo da Importação</h4>
                 <div style="display: flex; justify-content: space-around; flex-wrap: wrap; gap: 15px;">
@@ -712,8 +719,9 @@ class AdminPanel {
             </div>
         `;
 
-        resultsContainer.innerHTML = html;
+        resultsContainer.innerHTML = resultsHTML;
 
+        // Setup "Ir para Lista" button event
         const goToListButton = document.getElementById('goToLeadsListButton');
         if (goToListButton) {
             goToListButton.addEventListener('click', () => {
@@ -722,6 +730,7 @@ class AdminPanel {
             });
         }
 
+        // Hide preview section
         const previewSection = document.getElementById('bulkPreviewSection');
         if (previewSection) {
             previewSection.style.display = 'none';
@@ -765,10 +774,212 @@ class AdminPanel {
         }
     }
 
-    async refreshLeads() {
+    refreshLeads() {
         console.log('🔄 Atualizando lista de leads...');
-        await this.loadLeads();
+        this.loadLeads();
         this.showNotification('Lista atualizada com sucesso!', 'success');
+    }
+
+    // Aplicar filtros aos leads
+    applyFilters() {
+        console.log('🔍 Aplicando filtros...');
+        
+        const searchInput = document.getElementById('searchInput');
+        const dateFilter = document.getElementById('dateFilter');
+        const stageFilter = document.getElementById('stageFilter');
+        
+        const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
+        const dateValue = dateFilter ? dateFilter.value : '';
+        const stageValue = stageFilter ? stageFilter.value : 'all';
+        
+        console.log('Filtros aplicados:', { searchTerm, dateValue, stageValue });
+        
+        this.filteredLeads = this.leads.filter(lead => {
+            // Filtro por nome ou CPF
+            if (searchTerm) {
+                const nameMatch = (lead.nome_completo || '').toLowerCase().includes(searchTerm);
+                const cpfMatch = (lead.cpf || '').replace(/[^\d]/g, '').includes(searchTerm.replace(/[^\d]/g, ''));
+                if (!nameMatch && !cpfMatch) {
+                    return false;
+                }
+            }
+            
+            // Filtro por data
+            if (dateValue) {
+                const leadDate = new Date(lead.created_at);
+                const filterDate = new Date(dateValue);
+                if (leadDate.toDateString() !== filterDate.toDateString()) {
+                    return false;
+                }
+            }
+            
+            // Filtro por etapa
+            if (stageValue !== 'all') {
+                const leadStage = lead.etapa_atual || 1;
+                if (leadStage.toString() !== stageValue) {
+                    return false;
+                }
+            }
+            
+            return true;
+        });
+        
+        console.log(`Filtros aplicados: ${this.filteredLeads.length} de ${this.leads.length} leads`);
+        
+        // Resetar página atual
+        this.currentPage = 1;
+        
+        // Atualizar tabela
+        this.renderLeadsTable();
+        this.updateLeadsCount();
+        
+        this.showNotification(`Filtros aplicados: ${this.filteredLeads.length} leads encontrados`, "info");
+    }
+
+    // Lidar com ações do sistema (botões de controle)
+    async handleSystemAction(action) {
+        console.log(`🔧 Executando ação do sistema: ${action}`);
+        
+        // Aplicar filtros primeiro para obter leads corretos
+        this.applyFilters();
+        
+        const filteredLeads = this.filteredLeads;
+        
+        if (action === 'refresh') {
+            this.showLoadingButton('refreshButton', 'Atualizando...');
+            try {
+                this.refreshLeads();
+                this.showNotification("Lista atualizada com sucesso!", "success");
+            } finally {
+                this.hideLoadingButton('refreshButton', '<i class="fas fa-sync"></i> Atualizar Lista');
+            }
+            return;
+        }
+        
+        if (action === 'clearAll') {
+            if (filteredLeads.length === 0) {
+                this.showNotification("Nenhum lead encontrado com os filtros aplicados", "error");
+                return;
+            }
+            
+            const confirmed = confirm(`Tem certeza que deseja excluir ${filteredLeads.length} leads filtrados? Esta ação é irreversível.`);
+            if (!confirmed) return;
+            
+            this.showLoadingButton('clearAllButton', 'Excluindo...');
+            try {
+                await this.deleteFilteredLeads(filteredLeads);
+                this.showNotification(`${filteredLeads.length} leads excluídos com sucesso!`, "success");
+            } catch (error) {
+                console.error('❌ Erro ao excluir leads:', error);
+                this.showNotification("Erro ao excluir leads: " + error.message, "error");
+            } finally {
+                this.hideLoadingButton('clearAllButton', '<i class="fas fa-trash"></i> Limpar Todos');
+            }
+            return;
+        }
+        
+        if (action === 'nextAll' || action === 'prevAll') {
+            if (filteredLeads.length === 0) {
+                this.showNotification("Nenhum lead encontrado com os filtros aplicados", "error");
+                return;
+            }
+            
+            const actionText = action === 'nextAll' ? 'avançar' : 'voltar';
+            const buttonId = action === 'nextAll' ? 'nextAllButton' : 'prevAllButton';
+            const buttonText = action === 'nextAll' ? 
+                '<i class="fas fa-forward"></i> Avançar Todos' : 
+                '<i class="fas fa-backward"></i> Voltar Todos';
+            
+            const confirmed = confirm(`Tem certeza que deseja ${actionText} ${filteredLeads.length} leads filtrados?`);
+            if (!confirmed) return;
+            
+            this.showLoadingButton(buttonId, `${actionText === 'avançar' ? 'Avançando' : 'Voltando'}...`);
+            try {
+                await this.updateFilteredLeadsStage(filteredLeads, action === 'nextAll' ? 1 : -1);
+                this.showNotification(`${filteredLeads.length} leads ${actionText === 'avançar' ? 'avançados' : 'voltados'} com sucesso!`, "success");
+            } catch (error) {
+                console.error(`❌ Erro ao ${actionText} leads:`, error);
+                this.showNotification(`Erro ao ${actionText} leads: ` + error.message, "error");
+            } finally {
+                this.hideLoadingButton(buttonId, buttonText);
+            }
+        }
+    }
+
+    // Mostrar loading em botão
+    showLoadingButton(buttonId, loadingText) {
+        const button = document.getElementById(buttonId);
+        if (button) {
+            button.dataset.originalText = button.innerHTML;
+            button.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${loadingText}`;
+            button.disabled = true;
+        }
+    }
+
+    // Esconder loading do botão
+    hideLoadingButton(buttonId, originalText) {
+        const button = document.getElementById(buttonId);
+        if (button) {
+            button.innerHTML = originalText || button.dataset.originalText || button.innerHTML;
+            button.disabled = false;
+            delete button.dataset.originalText;
+        }
+    }
+
+    // Atualizar etapa de leads filtrados
+    async updateFilteredLeadsStage(filteredLeads, increment) {
+        try {
+            const leads = JSON.parse(localStorage.getItem('leads') || '[]');
+            let updatedCount = 0;
+            
+            filteredLeads.forEach(filteredLead => {
+                const leadIndex = leads.findIndex(l => (l.id || l.cpf) === (filteredLead.id || filteredLead.cpf));
+                if (leadIndex !== -1) {
+                    const currentStage = leads[leadIndex].etapa_atual || 1;
+                    const newStage = Math.max(1, Math.min(16, currentStage + increment));
+                    
+                    if (newStage !== currentStage) {
+                        leads[leadIndex].etapa_atual = newStage;
+                        leads[leadIndex].updated_at = new Date().toISOString();
+                        updatedCount++;
+                    }
+                }
+            });
+            
+            localStorage.setItem('leads', JSON.stringify(leads));
+            
+            // Recarregar dados
+            this.loadLeads();
+            
+            console.log(`✅ ${updatedCount} leads atualizados`);
+            return updatedCount;
+        } catch (error) {
+            console.error('❌ Erro ao atualizar etapas:', error);
+            throw error;
+        }
+    }
+
+    // Excluir leads filtrados
+    async deleteFilteredLeads(filteredLeads) {
+        try {
+            const leads = JSON.parse(localStorage.getItem('leads') || '[]');
+            const idsToDelete = filteredLeads.map(lead => lead.id || lead.cpf);
+            
+            const remainingLeads = leads.filter(lead => 
+                !idsToDelete.includes(lead.id || lead.cpf)
+            );
+            
+            localStorage.setItem('leads', JSON.stringify(remainingLeads));
+            
+            // Recarregar dados
+            this.loadLeads();
+            
+            console.log(`✅ ${filteredLeads.length} leads excluídos`);
+            return filteredLeads.length;
+        } catch (error) {
+            console.error('❌ Erro ao excluir leads:', error);
+            throw error;
+        }
     }
 
     renderLeadsTable() {
@@ -789,22 +1000,22 @@ class AdminPanel {
         const endIndex = startIndex + this.leadsPerPage;
         const pageLeads = this.filteredLeads.slice(startIndex, endIndex);
 
-        let html = '';
+        let tableHTML = '';
 
         pageLeads.forEach(lead => {
             const isSelected = this.selectedLeads.has(lead.id || lead.cpf);
             const produtos = Array.isArray(lead.produtos) ? lead.produtos : [];
             const produtoNome = produtos.length > 0 ? produtos[0].nome : 'Produto não informado';
-            const cpfFormatted = this.formatCPF(lead.cpf || '');
+            const formattedCPF = this.formatCPF(lead.cpf || '');
 
-            html += `
+            tableHTML += `
                 <tr style="${isSelected ? 'background-color: #e3f2fd;' : ''}">
                     <td>
                         <input type="checkbox" ${isSelected ? 'checked' : ''} 
                                onchange="adminPanel.toggleLeadSelection('${lead.id || lead.cpf}', this.checked)">
                     </td>
                     <td>${lead.nome_completo || 'N/A'}</td>
-                    <td>${cpfFormatted}</td>
+                    <td>${formattedCPF}</td>
                     <td>${lead.email || 'N/A'}</td>
                     <td>${lead.telefone || 'N/A'}</td>
                     <td>${produtoNome}</td>
@@ -836,7 +1047,7 @@ class AdminPanel {
             `;
         });
 
-        tableBody.innerHTML = html;
+        tableBody.innerHTML = tableHTML;
         this.updateSelectedCount();
     }
 
@@ -880,12 +1091,14 @@ class AdminPanel {
         const selectedCount = document.getElementById('selectedCount');
         const massActionButtons = document.querySelectorAll('.mass-action-button');
         const actionCounts = document.querySelectorAll('.action-count');
+
         const count = this.selectedLeads.size;
 
         if (selectedCount) {
             selectedCount.textContent = `${count} selecionados`;
         }
 
+        // Enable/disable mass action buttons
         massActionButtons.forEach(button => {
             button.disabled = count === 0;
             if (count === 0) {
@@ -897,6 +1110,7 @@ class AdminPanel {
             }
         });
 
+        // Update action counts
         actionCounts.forEach(element => {
             element.textContent = `(${count} leads)`;
         });
@@ -913,14 +1127,15 @@ class AdminPanel {
         if (!dateString) return 'N/A';
         
         try {
-            return new Date(dateString).toLocaleDateString('pt-BR', {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('pt-BR', {
                 day: '2-digit',
                 month: '2-digit',
                 year: 'numeric',
                 hour: '2-digit',
                 minute: '2-digit'
             });
-        } catch {
+        } catch (error) {
             return 'Data inválida';
         }
     }
@@ -969,39 +1184,319 @@ class AdminPanel {
         }, 3000);
     }
 
-    applyFilters() {
-        console.log('🔍 Aplicando filtros...');
-        // Implementar filtros se necessário
-    }
-
     handleMassAction(action) {
-        console.log(`🔧 Ação em massa: ${action} para ${this.selectedLeads.size} leads`);
-        // Implementar ações em massa se necessário
-    }
+        if (this.selectedLeads.size === 0) {
+            this.showNotification('Nenhum lead selecionado', 'error');
+            return;
+        }
 
-    editLead(leadId) {
-        console.log(`✏️ Editando lead: ${leadId}`);
-        const lead = JSON.parse(localStorage.getItem('leads') || '[]')
-            .find(l => (l.id || l.cpf) === leadId);
+        console.log(`🔧 Ação em massa: ${action} para ${this.selectedLeads.size} leads`);
         
-        if (lead) {
-            console.log('Lead encontrado para edição:', lead);
+        switch (action) {
+            case 'nextStage':
+                this.massNextStage();
+                break;
+            case 'prevStage':
+                this.massPrevStage();
+                break;
+            case 'setStage':
+                this.massSetStage();
+                break;
+            case 'delete':
+                this.massDeleteLeads();
+                break;
+            default:
+                console.warn('Ação não reconhecida:', action);
         }
     }
 
-    nextStage(leadId) {
-        console.log(`⏭️ Próxima etapa para lead: ${leadId}`);
-        this.updateLeadStage(leadId, 1);
+    async massNextStage() {
+        if (this.selectedLeads.size === 0) {
+            this.showNotification('Nenhum lead selecionado', 'error');
+            return;
+        }
+
+        const confirmMessage = `Tem certeza que deseja avançar ${this.selectedLeads.size} lead(s) para a próxima etapa?`;
+        if (!confirm(confirmMessage)) return;
+
+        try {
+            const leads = JSON.parse(localStorage.getItem('leads') || '[]');
+            let updatedCount = 0;
+
+            // Atualizar cada lead selecionado
+            this.selectedLeads.forEach(leadId => {
+                const leadIndex = leads.findIndex(l => (l.id || l.cpf) === leadId);
+                if (leadIndex !== -1) {
+                    const currentStage = leads[leadIndex].etapa_atual || 1;
+                    const newStage = Math.min(16, currentStage + 1); // Máximo 16
+                    
+                    leads[leadIndex].etapa_atual = newStage;
+                    leads[leadIndex].updated_at = new Date().toISOString();
+                    updatedCount++;
+                }
+            });
+
+            // Salvar no localStorage
+            localStorage.setItem('leads', JSON.stringify(leads));
+            
+            // Limpar seleção e recarregar tabela
+            this.selectedLeads.clear();
+            this.loadLeads();
+            
+            this.showNotification(`${updatedCount} lead(s) avançado(s) com sucesso!`, 'success');
+            console.log(`✅ ${updatedCount} leads avançados para próxima etapa`);
+            
+        } catch (error) {
+            console.error('❌ Erro ao avançar leads:', error);
+            this.showNotification('Erro ao avançar leads: ' + error.message, 'error');
+        }
     }
 
-    prevStage(leadId) {
+    async massPrevStage() {
+        if (this.selectedLeads.size === 0) {
+            this.showNotification('Nenhum lead selecionado', 'error');
+            return;
+        }
+
+        const confirmMessage = `Tem certeza que deseja retroceder ${this.selectedLeads.size} lead(s) para a etapa anterior?`;
+        if (!confirm(confirmMessage)) return;
+
+        try {
+            const leads = JSON.parse(localStorage.getItem('leads') || '[]');
+            let updatedCount = 0;
+
+            // Atualizar cada lead selecionado
+            this.selectedLeads.forEach(leadId => {
+                const leadIndex = leads.findIndex(l => (l.id || l.cpf) === leadId);
+                if (leadIndex !== -1) {
+                    const currentStage = leads[leadIndex].etapa_atual || 1;
+                    const newStage = Math.max(1, currentStage - 1); // Mínimo 1
+                    
+                    leads[leadIndex].etapa_atual = newStage;
+                    leads[leadIndex].updated_at = new Date().toISOString();
+                    updatedCount++;
+                }
+            });
+
+            // Salvar no localStorage
+            localStorage.setItem('leads', JSON.stringify(leads));
+            
+            // Limpar seleção e recarregar tabela
+            this.selectedLeads.clear();
+            this.loadLeads();
+            
+            this.showNotification(`${updatedCount} lead(s) retrocedido(s) com sucesso!`, 'success');
+            console.log(`✅ ${updatedCount} leads retrocedidos para etapa anterior`);
+            
+        } catch (error) {
+            console.error('❌ Erro ao retroceder leads:', error);
+            this.showNotification('Erro ao retroceder leads: ' + error.message, 'error');
+        }
+    }
+
+    async massSetStage() {
+        if (this.selectedLeads.size === 0) {
+            this.showNotification('Nenhum lead selecionado', 'error');
+            return;
+        }
+
+        // Solicitar a etapa desejada
+        const targetStage = prompt(`Digite a etapa desejada (1-16) para ${this.selectedLeads.size} lead(s):`);
+        
+        if (!targetStage) return; // Usuário cancelou
+        
+        const stageNumber = parseInt(targetStage);
+        if (isNaN(stageNumber) || stageNumber < 1 || stageNumber > 16) {
+            this.showNotification('Etapa inválida. Digite um número entre 1 e 16.', 'error');
+            return;
+        }
+
+        const confirmMessage = `Tem certeza que deseja definir a etapa ${stageNumber} para ${this.selectedLeads.size} lead(s)?`;
+        if (!confirm(confirmMessage)) return;
+
+        try {
+            const leads = JSON.parse(localStorage.getItem('leads') || '[]');
+            let updatedCount = 0;
+
+            // Atualizar cada lead selecionado
+            this.selectedLeads.forEach(leadId => {
+                const leadIndex = leads.findIndex(l => (l.id || l.cpf) === leadId);
+                if (leadIndex !== -1) {
+                    leads[leadIndex].etapa_atual = stageNumber;
+                    leads[leadIndex].updated_at = new Date().toISOString();
+                    updatedCount++;
+                }
+            });
+
+            // Salvar no localStorage
+            localStorage.setItem('leads', JSON.stringify(leads));
+            
+            // Limpar seleção e recarregar tabela
+            this.selectedLeads.clear();
+            this.loadLeads();
+            
+            this.showNotification(`${updatedCount} lead(s) definido(s) para etapa ${stageNumber} com sucesso!`, 'success');
+            console.log(`✅ ${updatedCount} leads definidos para etapa ${stageNumber}`);
+            
+        } catch (error) {
+            console.error('❌ Erro ao definir etapa dos leads:', error);
+            this.showNotification('Erro ao definir etapa dos leads: ' + error.message, 'error');
+        }
+    }
+
+    async massDeleteLeads() {
+        if (this.selectedLeads.size === 0) {
+            this.showNotification('Nenhum lead selecionado', 'error');
+            return;
+        }
+
+        const confirmMessage = `⚠️ ATENÇÃO: Tem certeza que deseja EXCLUIR ${this.selectedLeads.size} lead(s)?\n\nEsta ação não pode ser desfeita!`;
+        if (!confirm(confirmMessage)) return;
+
+        try {
+            const leads = JSON.parse(localStorage.getItem('leads') || '[]');
+            let deletedCount = 0;
+
+            // Filtrar leads removendo os selecionados
+            const remainingLeads = leads.filter(lead => {
+                const leadId = lead.id || lead.cpf;
+                if (this.selectedLeads.has(leadId)) {
+                    deletedCount++;
+                    return false; // Remove este lead
+                }
+                return true; // Mantém este lead
+            });
+
+            // Salvar no localStorage
+            localStorage.setItem('leads', JSON.stringify(remainingLeads));
+            
+            // Limpar seleção e recarregar tabela
+            this.selectedLeads.clear();
+            this.loadLeads();
+            
+            this.showNotification(`${deletedCount} lead(s) excluído(s) com sucesso!`, 'success');
+            console.log(`✅ ${deletedCount} leads excluídos`);
+            
+        } catch (error) {
+            console.error('❌ Erro ao excluir leads:', error);
+            this.showNotification('Erro ao excluir leads: ' + error.message, 'error');
+        }
+    }
+
+    async editLead(leadId) {
+        console.log(`✏️ Editando lead: ${leadId}`);
+        
+        try {
+            // Find lead in localStorage
+            const leads = JSON.parse(localStorage.getItem('leads') || '[]');
+            const lead = leads.find(l => (l.id || l.cpf) === leadId);
+            
+            if (!lead) {
+                this.showNotification('Lead não encontrado', 'error');
+                return;
+            }
+            
+            this.editingLead = lead;
+            this.populateEditForm(lead);
+            this.showEditModal();
+            
+        } catch (error) {
+            console.error('❌ Erro ao carregar lead para edição:', error);
+            this.showNotification('Erro ao carregar dados do lead', 'error');
+        }
+    }
+
+    populateEditForm(lead) {
+        document.getElementById('editName').value = lead.nome_completo || '';
+        document.getElementById('editCPF').value = lead.cpf || '';
+        document.getElementById('editEmail').value = lead.email || '';
+        document.getElementById('editPhone').value = lead.telefone || '';
+        document.getElementById('editAddress').value = lead.endereco || '';
+        document.getElementById('editStage').value = lead.etapa_atual || 1;
+        
+        // Set current date/time for stage if not exists
+        if (lead.updated_at) {
+            const date = new Date(lead.updated_at);
+            const localDateTime = new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+            document.getElementById('editStageDateTime').value = localDateTime;
+        } else {
+            const now = new Date();
+            const localDateTime = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+            document.getElementById('editStageDateTime').value = localDateTime;
+        }
+    }
+
+    showEditModal() {
+        const modal = document.getElementById('editModal');
+        if (modal) {
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        }
+    }
+
+    closeEditModal() {
+        const modal = document.getElementById('editModal');
+        if (modal) {
+            modal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+        }
+        this.editingLead = null;
+    }
+
+    async handleEditSubmit(e) {
+        e.preventDefault();
+        
+        if (!this.editingLead) {
+            this.showNotification('Nenhum lead selecionado para edição', 'error');
+            return;
+        }
+
+        try {
+            const formData = new FormData(e.target);
+            const updatedLead = {
+                ...this.editingLead,
+                nome_completo: document.getElementById('editName').value,
+                cpf: document.getElementById('editCPF').value.replace(/[^\d]/g, ''),
+                email: document.getElementById('editEmail').value,
+                telefone: document.getElementById('editPhone').value,
+                endereco: document.getElementById('editAddress').value,
+                etapa_atual: parseInt(document.getElementById('editStage').value),
+                updated_at: new Date().toISOString()
+            };
+
+            // Update in localStorage
+            const leads = JSON.parse(localStorage.getItem('leads') || '[]');
+            const leadIndex = leads.findIndex(l => (l.id || l.cpf) === (this.editingLead.id || this.editingLead.cpf));
+            
+            if (leadIndex !== -1) {
+                leads[leadIndex] = updatedLead;
+                localStorage.setItem('leads', JSON.stringify(leads));
+                
+                this.closeEditModal();
+                this.loadLeads();
+                this.showNotification('Lead atualizado com sucesso!', 'success');
+            } else {
+                throw new Error('Lead não encontrado para atualização');
+            }
+            
+        } catch (error) {
+            console.error('❌ Erro ao atualizar lead:', error);
+            this.showNotification('Erro ao atualizar lead: ' + error.message, 'error');
+        }
+    }
+
+    async nextStage(leadId) {
+        console.log(`⏭️ Próxima etapa para lead: ${leadId}`);
+        await this.updateLeadStage(leadId, 1);
+    }
+
+    async prevStage(leadId) {
         console.log(`⏮️ Etapa anterior para lead: ${leadId}`);
-        this.updateLeadStage(leadId, -1);
+        await this.updateLeadStage(leadId, -1);
     }
 
     async updateLeadStage(leadId, direction) {
         try {
-            // Buscar lead atual
             const leads = JSON.parse(localStorage.getItem('leads') || '[]');
             const leadIndex = leads.findIndex(l => (l.id || l.cpf) === leadId);
             
@@ -1009,77 +1504,52 @@ class AdminPanel {
                 const currentStage = leads[leadIndex].etapa_atual || 1;
                 const newStage = Math.max(1, Math.min(16, currentStage + direction));
                 
-                // Atualizar no localStorage
                 leads[leadIndex].etapa_atual = newStage;
                 leads[leadIndex].updated_at = new Date().toISOString();
+                
                 localStorage.setItem('leads', JSON.stringify(leads));
+                this.loadLeads();
                 
-                // Sincronizar com Supabase automaticamente
-                const cpf = leads[leadIndex].cpf;
-                if (cpf) {
-                    console.log('🔄 Sincronizando etapa com Supabase...');
-                    const result = await this.supabaseService.updateLeadStage(cpf, newStage);
-                    
-                    if (result.success) {
-                        console.log('✅ Etapa sincronizada com Supabase');
-                    } else {
-                        console.warn('⚠️ Erro ao sincronizar com Supabase:', result.error);
-                    }
-                }
-                
-                // Recarregar lista
-                await this.loadLeads();
+                const actionText = direction > 0 ? 'avançada' : 'retrocedida';
+                this.showNotification(`Etapa ${actionText} com sucesso! Nova etapa: ${newStage}`, 'success');
                 console.log(`✅ Etapa atualizada para ${newStage}`);
+            } else {
+                throw new Error('Lead não encontrado');
             }
         } catch (error) {
             console.error('❌ Erro ao atualizar etapa:', error);
+            this.showNotification('Erro ao atualizar etapa: ' + error.message, 'error');
         }
     }
 
     async deleteLead(leadId) {
-        if (!confirm('Tem certeza que deseja excluir este lead?')) return;
-
-        console.log(`🗑️ Excluindo lead: ${leadId}`);
-        
-        try {
-            // Remover do localStorage
-            const leads = JSON.parse(localStorage.getItem('leads') || '[]')
-                .filter(l => (l.id || l.cpf) !== leadId);
-            localStorage.setItem('leads', JSON.stringify(leads));
-            
-            // Remover do Supabase se conectado
-            if (this.supabaseService.isSupabaseConnected()) {
-                const leadToDelete = this.leads.find(l => (l.id || l.cpf) === leadId);
-                if (leadToDelete && leadToDelete.cpf) {
-                    console.log('🗑️ Removendo do Supabase...');
-                    const { error } = await this.supabaseService.supabase
-                        .from('leads')
-                        .delete()
-                        .eq('cpf', leadToDelete.cpf.replace(/[^\d]/g, ''));
-                    
-                    if (error) {
-                        console.warn('⚠️ Erro ao remover do Supabase:', error);
-                    } else {
-                        console.log('✅ Lead removido do Supabase');
-                    }
+        if (confirm('Tem certeza que deseja excluir este lead?')) {
+            console.log(`🗑️ Excluindo lead: ${leadId}`);
+            try {
+                const leads = JSON.parse(localStorage.getItem('leads') || '[]');
+                const filteredLeads = leads.filter(l => (l.id || l.cpf) !== leadId);
+                
+                if (leads.length === filteredLeads.length) {
+                    throw new Error('Lead não encontrado para exclusão');
                 }
+                
+                localStorage.setItem('leads', JSON.stringify(filteredLeads));
+                this.loadLeads();
+                this.showNotification('Lead excluído com sucesso!', 'success');
+            } catch (error) {
+                console.error('❌ Erro ao excluir lead:', error);
+                this.showNotification('Erro ao excluir lead', 'error');
             }
-            
-            await this.loadLeads();
-            this.showNotification('Lead excluído com sucesso!', 'success');
-        } catch (error) {
-            console.error('❌ Erro ao excluir lead:', error);
-            this.showNotification('Erro ao excluir lead', 'error');
         }
     }
 }
 
-// Inicializar painel quando DOM estiver pronto
+// Initialize admin panel when DOM is ready
 let adminPanel = null;
 
 document.addEventListener('DOMContentLoaded', () => {
     adminPanel = new AdminPanel();
+    window.adminPanel = adminPanel;
 });
 
-// Expor globalmente para uso nos event handlers inline
-window.adminPanel = adminPanel;
+export default AdminPanel;
