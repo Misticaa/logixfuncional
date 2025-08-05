@@ -6,7 +6,7 @@ import { createClient } from '@supabase/supabase-js';
 export class DatabaseService {
     constructor() {
         this.supabase = this.initializeSupabase();
-        console.log('🗄️ DatabaseService inicializado (Supabase)');
+        console.log('🗄️ DatabaseService inicializado - Modo Painel Centralizado');
     }
 
     initializeSupabase() {
@@ -32,8 +32,8 @@ export class DatabaseService {
         try {
             const cleanCPF = cpf.replace(/[^\d]/g, '');
             
-            // 🎯 PAINEL CENTRALIZADO: Buscar APENAS no localStorage (painel)
-            console.log('🎯 Buscando lead no painel centralizado para CPF:', cleanCPF);
+            // 🎯 PAINEL CENTRALIZADO: Dados vêm EXCLUSIVAMENTE do painel
+            console.log('🎯 Buscando lead via painel centralizado para CPF:', cleanCPF);
             return this.getLeadFromLocalStorage(cleanCPF);
             
         } catch (error) {
@@ -64,8 +64,8 @@ export class DatabaseService {
 
     async createLead(leadData) {
         try {
-            // 🎯 PAINEL CENTRALIZADO: Salvar APENAS no localStorage (painel)
-            console.log('🎯 Salvando lead no painel centralizado (localStorage)');
+            // 🎯 PAINEL CENTRALIZADO: Criação controlada pelo painel
+            console.log('🎯 Criando lead via painel centralizado');
             return this.createLeadInLocalStorage(leadData);
             
         } catch (error) {
@@ -96,8 +96,8 @@ export class DatabaseService {
         try {
             const cleanCPF = cpf.replace(/[^\d]/g, '');
             
-            // 🎯 PAINEL CENTRALIZADO: Atualizar APENAS no localStorage (painel)
-            console.log('🎯 Atualizando status no painel centralizado:', status);
+            // 🎯 PAINEL CENTRALIZADO: Atualizações controladas pelo painel
+            console.log('🎯 Atualizando status via painel centralizado:', status);
             return this.updatePaymentStatusInLocalStorage(cleanCPF, status);
             
         } catch (error) {
@@ -132,8 +132,8 @@ export class DatabaseService {
         try {
             const cleanCPF = cpf.replace(/[^\d]/g, '');
             
-            // 🎯 PAINEL CENTRALIZADO: Atualizar APENAS no localStorage (painel)
-            console.log('🎯 Atualizando etapa no painel centralizado:', stage);
+            // 🎯 PAINEL CENTRALIZADO: Etapas controladas pelo painel
+            console.log('🎯 Atualizando etapa via painel centralizado:', stage);
             return this.updateLeadStageInLocalStorage(cleanCPF, stage);
             
         } catch (error) {
@@ -268,8 +268,8 @@ export class DatabaseService {
 
     async getData() {
         try {
-            // 🎯 PAINEL CENTRALIZADO: Buscar APENAS do localStorage (painel)
-            console.log('🎯 Buscando dados do painel centralizado');
+            // 🎯 PAINEL CENTRALIZADO: Fonte única de dados
+            console.log('🎯 Obtendo dados via painel centralizado');
             return this.getDataFromLocalStorage();
             
         } catch (error) {

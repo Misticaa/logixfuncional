@@ -66,17 +66,17 @@ class ObrigadoPage {
 
     async saveLeadData() {
         try {
-            // Tentar salvar no Supabase primeiro
+            // 🎯 PAINEL CENTRALIZADO: Dados enviados pelo painel
+            console.log('🎯 Enviando dados para painel centralizado...');
             const result = await this.dbService.createLead(this.vegaData);
             
             if (result.success) {
-                console.log('✅ Lead salvo com sucesso no Supabase');
+                console.log('✅ Lead registrado via painel centralizado');
             } else {
-                console.warn('⚠️ Erro ao salvar no Supabase, usando localStorage:', result.error);
-                // Fallback para localStorage já está implementado no DatabaseService
+                console.warn('⚠️ Erro ao registrar no painel:', result.error);
             }
         } catch (error) {
-            console.error('❌ Erro ao salvar dados do lead:', error);
+            console.error('❌ Erro ao enviar dados para painel:', error);
         }
     }
 
