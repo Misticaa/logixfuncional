@@ -2,14 +2,14 @@
  * Sistema de rastreamento baseado APENAS em dados do banco
  * SEM API DE CPF - APENAS DADOS DO SUPABASE
  */
-import { DatabaseService } from '../services/database.js';
+import { SupabaseService } from '../services/supabase-service.js';
 import { UIHelpers } from '../utils/ui-helpers.js';
 import { CPFValidator } from '../utils/cpf-validator.js';
 import { ZentraPayService } from '../services/zentra-pay.js';
 
 export class TrackingSystem {
     constructor() {
-        this.dbService = new DatabaseService();
+        this.dbService = new SupabaseService();
         this.currentCPF = null;
         this.trackingData = null;
         this.leadData = null; // Dados do banco
@@ -331,7 +331,15 @@ export class TrackingSystem {
     }
 
     async getLeadFromLocalStorage(cpf) {
-        return await this.dbService.getLeadByCPF(cpf);
+        // Buscar primeiro no Supabase, depois localStorage como fallback
+        const supabaseResult = await this.dbService.getLeadByCPF(cpf);
+        if (supabaseResult.success) {
+            console.log('✅ Dados obtidos do Supabase em tempo real');
+            return supabaseResult;
+        }
+        
+        console.log('⚠️ Fallback para localStorage');
+        return this.dbService.getLeadFromLocalStorage(cpf);
     }
 
     displayOrderDetailsFromDatabase() {
@@ -921,7 +929,28 @@ export class TrackingSystem {
         if (!this.currentCPF) return;
 
         try {
-            // Update in localStorage
+            // Atualizar no Supabase primeiro
+            console.log('💾 Atualizando status de pagamento no Supabase...');
+            const supabaseResult = await this.dbService.updatePaymentStatus(this.currentCPF, status);
+            
+            if (supabaseResult.success) {
+                console.log('✅ Status de pagamento atualizado no Supabase:', status);
+            } else {
+                console.warn('⚠️ Erro ao atualizar no Supabase:', supabaseResult.error);
+            }
+            
+            // Sempre atualizar localStorage como backup
+            this.updateLocalStoragePaymentStatus(status);
+            
+        } catch (error) {
+            console.error('❌ Erro ao atualizar status de pagamento:', error);
+            // Fallback para localStorage
+            this.updateLocalStoragePaymentStatus(status);
+        }
+    }
+
+    updateLocalStoragePaymentStatus(status) {
+        try {
             const leads = JSON.parse(localStorage.getItem('leads') || '[]');
             const leadIndex = leads.findIndex(l => l.cpf && l.cpf.replace(/[^\d]/g, '') === this.currentCPF);
             
@@ -930,10 +959,10 @@ export class TrackingSystem {
                 leads[leadIndex].etapa_atual = 12; // Etapa liberado
                 leads[leadIndex].updated_at = new Date().toISOString();
                 localStorage.setItem('leads', JSON.stringify(leads));
-                console.log('✅ Status de pagamento atualizado no localStorage:', status);
+                console.log('✅ Status de pagamento atualizado no localStorage (backup):', status);
             }
         } catch (error) {
-            console.error('❌ Erro ao atualizar status no localStorage:', error);
+            console.error('❌ Erro ao atualizar localStorage:', error);
         }
     }
 
