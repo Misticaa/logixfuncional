@@ -83,7 +83,7 @@ export class DatabaseService {
             
             const { data, error } = await this.supabase
                 .from('leads')
-                .insert({
+                .upsert({
                     nome_completo: leadData.nome_completo,
                     cpf: leadData.cpf.replace(/[^\d]/g, ''),
                     email: leadData.email,
@@ -97,7 +97,7 @@ export class DatabaseService {
                     status_pagamento: leadData.status_pagamento || 'pendente',
                     order_bumps: leadData.order_bumps || [],
                     data_compra: leadData.data_compra || new Date().toISOString()
-                })
+                }, { onConflict: 'cpf' })
                 .select()
                 .single();
             
@@ -106,7 +106,7 @@ export class DatabaseService {
                 return { success: false, error: error.message };
             }
             
-            console.log('✅ Lead criado no Supabase:', data);
+            console.log('✅ Lead criado/atualizado no Supabase:', data);
             return { success: true, data: data };
             
         } catch (error) {
