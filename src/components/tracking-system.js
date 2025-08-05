@@ -623,7 +623,7 @@ export class TrackingSystem {
         }
     }
 
-    processSuccessfulPayment() {
+    async processSuccessfulPayment() {
         console.log('🎉 Pagamento processado com sucesso!');
         
         // Marcar como pago
