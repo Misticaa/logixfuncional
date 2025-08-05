@@ -1228,7 +1228,6 @@ class AdminPanel {
                 const leadIndex = leads.findIndex(l => (l.id || l.cpf) === leadId);
                 if (leadIndex !== -1) {
                     const newStage = Math.min(26, currentStage + 1);
-                    const newStage = Math.min(16, currentStage + 1); // Máximo 16
                     
                     leads[leadIndex].etapa_atual = newStage;
                     leads[leadIndex].updated_at = new Date().toISOString();
