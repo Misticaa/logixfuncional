@@ -604,6 +604,20 @@ export class AdminPanel {
         this.updateSelectedCount();
     }
 
+    toggleSelectAll(isChecked) {
+        if (isChecked) {
+            // Select all visible leads
+            this.filteredLeads.forEach(lead => {
+                this.selectedLeads.add(lead.id);
+            });
+        } else {
+            // Clear all selections
+            this.selectedLeads.clear();
+        }
+        this.renderLeadsTable();
+        this.updateSelectedCount();
+    }
+
     updateSelectedCount() {
         const selectedCount = document.getElementById('selectedCount');
         const massActionButtons = document.querySelectorAll('.mass-action-button');
