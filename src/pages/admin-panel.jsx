@@ -1,5 +1,5 @@
 /**
- * Painel Administrativo - VERSÃO 16.9: COMANDO CENTRAL
+ * Painel Administrativo - VERSÃO 17.0: COMANDO CENTRAL
  * O painel é o diretor que controla tudo via Supabase
  */
 import { DatabaseService, CPFValidator } from '../services/database.js';
@@ -15,8 +15,9 @@ export class AdminPanel {
         this.isLoggedIn = false;
         this.editingLead = null;
         this.isSyncing = false;
+        this.stageCount = {};
         
-        console.log('🎯 AdminPanel inicializado - COMANDO CENTRAL');
+        console.log('🎯 AdminPanel inicializado - VERSÃO 17.0 COMANDO CENTRAL');
         console.log('🗄️ Fonte de dados: EXCLUSIVAMENTE Supabase');
         this.init();
     }
@@ -32,6 +33,7 @@ export class AdminPanel {
                 await this.loadLeadsFromSupabase();
                 this.renderLeadsTable();
                 this.updateLeadsCount();
+                await this.loadStageCount();
                 await this.testSupabaseConnection();
             }
             
@@ -121,6 +123,39 @@ export class AdminPanel {
         if (massDeleteLeads) {
             massDeleteLeads.addEventListener('click', () => this.handleMassAction('delete'));
         }
+
+        // Botões Avançar/Voltar Todos
+        const advanceAllButton = document.getElementById('advanceAllLeads');
+        if (advanceAllButton) {
+            advanceAllButton.addEventListener('click', () => this.handleAdvanceAll());
+        }
+
+        const regressAllButton = document.getElementById('regressAllLeads');
+        if (regressAllButton) {
+            regressAllButton.addEventListener('click', () => this.handleRegressAll());
+        }
+
+        // Importação em massa
+        const previewBulkDataButton = document.getElementById('previewBulkDataButton');
+        if (previewBulkDataButton) {
+            previewBulkDataButton.addEventListener('click', () => this.previewBulkData());
+        }
+
+        const clearBulkDataButton = document.getElementById('clearBulkDataButton');
+        if (clearBulkDataButton) {
+            clearBulkDataButton.addEventListener('click', () => this.clearBulkData());
+        }
+
+        const confirmBulkImportButton = document.getElementById('confirmBulkImportButton');
+        if (confirmBulkImportButton) {
+            confirmBulkImportButton.addEventListener('click', () => this.confirmBulkImport());
+        }
+
+        // Campo de busca com máscara automática
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => this.handleSearchInput(e));
+        }
     }
 
     checkLoginStatus() {
@@ -197,6 +232,7 @@ export class AdminPanel {
             if (result.success) {
                 this.leads = result.data || [];
                 this.filteredLeads = [...this.leads];
+                await this.loadStageCount();
                 console.log(`📦 ${this.leads.length} leads carregados do Supabase`);
                 
                 this.renderLeadsTable();
@@ -219,6 +255,42 @@ export class AdminPanel {
         }
     }
 
+    async loadStageCount() {
+        try {
+            const result = await this.dbService.getLeadsByStage();
+            
+            if (result.success) {
+                this.stageCount = result.data;
+                this.updateStageCountDisplay();
+            }
+        } catch (error) {
+            console.error('❌ Erro ao carregar contagem por etapa:', error);
+        }
+    }
+
+    updateStageCountDisplay() {
+        // Atualizar contadores de etapa na interface
+        const stageCountContainer = document.getElementById('stageCountContainer');
+        if (stageCountContainer && this.stageCount) {
+            let html = '';
+            
+            // Mostrar apenas etapas com leads
+            for (let stage = 1; stage <= 26; stage++) {
+                const count = this.stageCount[stage] || 0;
+                if (count > 0) {
+                    html += `
+                        <div class="stage-count-item">
+                            <span class="stage-number">Etapa ${stage}</span>
+                            <span class="stage-count">${count}</span>
+                        </div>
+                    `;
+                }
+            }
+            
+            stageCountContainer.innerHTML = html;
+        }
+    }
+
     async handleAddLead(e) {
         e.preventDefault();
         
@@ -228,7 +300,7 @@ export class AdminPanel {
             cpf: formData.get('cpf').replace(/[^\d]/g, ''),
             email: formData.get('email'),
             telefone: formData.get('telefone'),
-            endereco: this.buildAddress(formData),
+            endereco: formData.get('endereco'),
             produtos: [{
                 nome: formData.get('produto') || 'Kit 12 caixas organizadoras + brinde',
                 preco: parseFloat(formData.get('valor') || 0)
@@ -264,17 +336,74 @@ export class AdminPanel {
         }
     }
 
-    buildAddress(formData) {
-        const endereco = formData.get('endereco') || '';
-        const numero = formData.get('numero') || '';
-        const complemento = formData.get('complemento') || '';
-        const bairro = formData.get('bairro') || '';
-        const cep = formData.get('cep') || '';
-        const cidade = formData.get('cidade') || '';
-        const estado = formData.get('estado') || '';
-        const pais = formData.get('pais') || 'BR';
-        
-        return `${endereco}, ${numero}${complemento ? ` - ${complemento}` : ''} - ${bairro} - ${cidade}/${estado} - CEP: ${cep} - ${pais}`;
+    async handleAdvanceAll() {
+        if (this.filteredLeads.length === 0) {
+            this.showNotification('Nenhum lead para avançar', 'error');
+            return;
+        }
+
+        if (!confirm(`Tem certeza que deseja AVANÇAR todos os ${this.filteredLeads.length} leads exibidos para a próxima etapa?`)) return;
+
+        try {
+            console.log(`📈 Avançando todos os ${this.filteredLeads.length} leads...`);
+            
+            let updatedCount = 0;
+            
+            for (const lead of this.filteredLeads) {
+                const currentStage = lead.etapa_atual || 1;
+                const newStage = Math.min(26, currentStage + 1);
+                
+                const result = await this.dbService.updateLead(lead.id, {
+                    etapa_atual: newStage
+                });
+                
+                if (result.success) {
+                    updatedCount++;
+                }
+            }
+            
+            await this.loadLeadsFromSupabase();
+            this.showNotification(`${updatedCount} leads avançados com sucesso!`, 'success');
+            
+        } catch (error) {
+            console.error('❌ Erro ao avançar todos os leads:', error);
+            this.showNotification('Erro ao avançar leads: ' + error.message, 'error');
+        }
+    }
+
+    async handleRegressAll() {
+        if (this.filteredLeads.length === 0) {
+            this.showNotification('Nenhum lead para retroceder', 'error');
+            return;
+        }
+
+        if (!confirm(`Tem certeza que deseja RETROCEDER todos os ${this.filteredLeads.length} leads exibidos para a etapa anterior?`)) return;
+
+        try {
+            console.log(`📉 Retrocedendo todos os ${this.filteredLeads.length} leads...`);
+            
+            let updatedCount = 0;
+            
+            for (const lead of this.filteredLeads) {
+                const currentStage = lead.etapa_atual || 1;
+                const newStage = Math.max(1, currentStage - 1);
+                
+                const result = await this.dbService.updateLead(lead.id, {
+                    etapa_atual: newStage
+                });
+                
+                if (result.success) {
+                    updatedCount++;
+                }
+            }
+            
+            await this.loadLeadsFromSupabase();
+            this.showNotification(`${updatedCount} leads retrocedidos com sucesso!`, 'success');
+            
+        } catch (error) {
+            console.error('❌ Erro ao retroceder todos os leads:', error);
+            this.showNotification('Erro ao retroceder leads: ' + error.message, 'error');
+        }
     }
 
     async forceSyncWithSupabase() {
@@ -465,6 +594,383 @@ export class AdminPanel {
         } catch (error) {
             console.error('❌ Erro ao excluir lead:', error);
             this.showNotification('Erro ao excluir lead: ' + error.message, 'error');
+        }
+    }
+
+    async editLead(leadId) {
+        const lead = this.leads.find(l => l.id === leadId);
+        if (!lead) {
+            this.showNotification('Lead não encontrado', 'error');
+            return;
+        }
+
+        // Criar modal de edição
+        this.showEditModal(lead);
+    }
+
+    showEditModal(lead) {
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.id = 'editLeadModal';
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 3000;
+            backdrop-filter: blur(5px);
+        `;
+
+        modal.innerHTML = `
+            <div style="
+                background: white;
+                border-radius: 12px;
+                max-width: 600px;
+                width: 90%;
+                max-height: 90vh;
+                overflow-y: auto;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+                border: 2px solid #1e4a6b;
+            ">
+                <div style="
+                    background: linear-gradient(135deg, #1e4a6b, #2c5f8a);
+                    color: white;
+                    padding: 20px;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    border-radius: 10px 10px 0 0;
+                ">
+                    <h3 style="margin: 0; font-size: 1.3rem; font-weight: 700;">
+                        <i class="fas fa-edit"></i> Editar Lead
+                    </h3>
+                    <button id="closeEditModal" style="
+                        background: none;
+                        border: none;
+                        color: white;
+                        font-size: 1.5rem;
+                        cursor: pointer;
+                        padding: 5px;
+                        border-radius: 50%;
+                        width: 35px;
+                        height: 35px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                    ">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <div style="padding: 30px;">
+                    <form id="editLeadForm">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                            <div class="form-group">
+                                <label>Nome Completo:</label>
+                                <input type="text" name="nome" value="${lead.nome_completo || ''}" required>
+                            </div>
+                            <div class="form-group">
+                                <label>CPF:</label>
+                                <input type="text" name="cpf" value="${CPFValidator.formatCPF(lead.cpf || '')}" required maxlength="14">
+                            </div>
+                            <div class="form-group">
+                                <label>Email:</label>
+                                <input type="email" name="email" value="${lead.email || ''}" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Telefone:</label>
+                                <input type="tel" name="telefone" value="${lead.telefone || ''}" required>
+                            </div>
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                            <div class="form-group">
+                                <label>Endereço:</label>
+                                <input type="text" name="endereco" value="${lead.endereco || ''}" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Valor (R$):</label>
+                                <input type="number" name="valor" step="0.01" value="${lead.valor_total || 67.90}" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Etapa:</label>
+                                <select name="etapa" required>
+                                    ${this.generateStageOptions(lead.etapa_atual || 1)}
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; gap: 15px; justify-content: flex-end;">
+                            <button type="button" id="cancelEditButton" style="
+                                background: #6c757d;
+                                color: white;
+                                border: none;
+                                padding: 12px 25px;
+                                border-radius: 8px;
+                                cursor: pointer;
+                                font-weight: 600;
+                            ">
+                                Cancelar
+                            </button>
+                            <button type="submit" style="
+                                background: linear-gradient(45deg, #1e4a6b, #2c5f8a);
+                                color: white;
+                                border: none;
+                                padding: 12px 25px;
+                                border-radius: 8px;
+                                cursor: pointer;
+                                font-weight: 600;
+                            ">
+                                <i class="fas fa-save"></i> Salvar Alterações
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+        document.body.style.overflow = 'hidden';
+
+        // Configurar eventos
+        this.setupEditModalEvents(modal, lead);
+    }
+
+    generateStageOptions(currentStage) {
+        let options = '';
+        for (let i = 1; i <= 26; i++) {
+            const selected = i === currentStage ? 'selected' : '';
+            options += `<option value="${i}" ${selected}>Etapa ${i}</option>`;
+        }
+        return options;
+    }
+
+    setupEditModalEvents(modal, lead) {
+        const closeButton = modal.querySelector('#closeEditModal');
+        const cancelButton = modal.querySelector('#cancelEditButton');
+        const form = modal.querySelector('#editLeadForm');
+
+        const closeModal = () => {
+            modal.remove();
+            document.body.style.overflow = 'auto';
+        };
+
+        closeButton.addEventListener('click', closeModal);
+        cancelButton.addEventListener('click', closeModal);
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) closeModal();
+        });
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await this.handleEditSubmit(e, lead.id);
+            closeModal();
+        });
+    }
+
+    async handleEditSubmit(e, leadId) {
+        const formData = new FormData(e.target);
+        const updateData = {
+            nome_completo: formData.get('nome'),
+            cpf: formData.get('cpf').replace(/[^\d]/g, ''),
+            email: formData.get('email'),
+            telefone: formData.get('telefone'),
+            endereco: formData.get('endereco'),
+            valor_total: parseFloat(formData.get('valor')),
+            etapa_atual: parseInt(formData.get('etapa'))
+        };
+
+        try {
+            const result = await this.dbService.updateLead(leadId, updateData);
+            
+            if (result.success) {
+                await this.loadLeadsFromSupabase();
+                this.showNotification('Lead atualizado com sucesso!', 'success');
+            } else {
+                this.showNotification('Erro ao atualizar lead: ' + result.error, 'error');
+            }
+        } catch (error) {
+            this.showNotification('Erro ao atualizar lead: ' + error.message, 'error');
+        }
+    }
+
+    handleSearchInput(e) {
+        const value = e.target.value;
+        
+        // Se contém apenas números, aplicar máscara de CPF
+        if (/^\d+$/.test(value.replace(/[^\d]/g, ''))) {
+            CPFValidator.applyCPFMask(e.target);
+        }
+    }
+
+    previewBulkData() {
+        const textarea = document.getElementById('bulkDataTextarea');
+        const previewSection = document.getElementById('bulkPreviewSection');
+        const previewContainer = document.getElementById('bulkPreviewContainer');
+        const previewSummary = document.getElementById('previewSummary');
+        const confirmButton = document.getElementById('confirmBulkImportButton');
+        
+        if (!textarea || !previewSection) return;
+        
+        const data = textarea.value.trim();
+        if (!data) {
+            this.showNotification('Cole os dados para visualizar', 'error');
+            return;
+        }
+        
+        // Processar dados
+        const lines = data.split('\n').filter(line => line.trim());
+        const processedData = [];
+        
+        lines.forEach((line, index) => {
+            const columns = line.split('\t');
+            if (columns.length >= 6) {
+                processedData.push({
+                    nome: columns[0]?.trim() || '',
+                    email: columns[1]?.trim() || '',
+                    telefone: columns[2]?.trim() || '',
+                    cpf: columns[3]?.trim() || '',
+                    produto: columns[4]?.trim() || '',
+                    valor: parseFloat(columns[5]?.trim() || '0'),
+                    endereco: columns[6]?.trim() || '',
+                    numero: columns[7]?.trim() || '',
+                    complemento: columns[8]?.trim() || '',
+                    bairro: columns[9]?.trim() || '',
+                    cep: columns[10]?.trim() || '',
+                    cidade: columns[11]?.trim() || '',
+                    estado: columns[12]?.trim() || '',
+                    pais: columns[13]?.trim() || 'BR'
+                });
+            }
+        });
+        
+        if (processedData.length === 0) {
+            this.showNotification('Nenhum dado válido encontrado', 'error');
+            return;
+        }
+        
+        // Gerar preview
+        let tableHTML = `
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem;">
+                <thead>
+                    <tr style="background: #1e4a6b; color: white;">
+                        <th style="padding: 8px; border: 1px solid #ddd;">Nome</th>
+                        <th style="padding: 8px; border: 1px solid #ddd;">Email</th>
+                        <th style="padding: 8px; border: 1px solid #ddd;">CPF</th>
+                        <th style="padding: 8px; border: 1px solid #ddd;">Produto</th>
+                        <th style="padding: 8px; border: 1px solid #ddd;">Valor</th>
+                        <th style="padding: 8px; border: 1px solid #ddd;">Endereço</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+        
+        processedData.forEach(item => {
+            const enderecoCompleto = this.buildCompleteAddress(item);
+            tableHTML += `
+                <tr>
+                    <td style="padding: 6px; border: 1px solid #ddd;">${item.nome}</td>
+                    <td style="padding: 6px; border: 1px solid #ddd;">${item.email}</td>
+                    <td style="padding: 6px; border: 1px solid #ddd;">${CPFValidator.formatCPF(item.cpf)}</td>
+                    <td style="padding: 6px; border: 1px solid #ddd;">${item.produto}</td>
+                    <td style="padding: 6px; border: 1px solid #ddd;">R$ ${item.valor.toFixed(2)}</td>
+                    <td style="padding: 6px; border: 1px solid #ddd;">${enderecoCompleto}</td>
+                </tr>
+            `;
+        });
+        
+        tableHTML += '</tbody></table>';
+        
+        previewContainer.innerHTML = tableHTML;
+        previewSummary.textContent = `${processedData.length} leads prontos para importação`;
+        previewSection.style.display = 'block';
+        confirmButton.style.display = 'block';
+        
+        // Salvar dados processados para importação
+        this.bulkDataToImport = processedData;
+    }
+
+    buildCompleteAddress(item) {
+        let endereco = item.endereco || '';
+        if (item.numero) endereco += `, ${item.numero}`;
+        if (item.complemento) endereco += ` - ${item.complemento}`;
+        if (item.bairro) endereco += ` - ${item.bairro}`;
+        if (item.cidade) endereco += ` - ${item.cidade}`;
+        if (item.estado) endereco += `/${item.estado}`;
+        if (item.cep) endereco += ` - CEP: ${item.cep}`;
+        if (item.pais && item.pais !== 'BR') endereco += ` - ${item.pais}`;
+        
+        return endereco;
+    }
+
+    clearBulkData() {
+        const textarea = document.getElementById('bulkDataTextarea');
+        const previewSection = document.getElementById('bulkPreviewSection');
+        
+        if (textarea) textarea.value = '';
+        if (previewSection) previewSection.style.display = 'none';
+        
+        this.bulkDataToImport = null;
+    }
+
+    async confirmBulkImport() {
+        if (!this.bulkDataToImport || this.bulkDataToImport.length === 0) {
+            this.showNotification('Nenhum dado para importar', 'error');
+            return;
+        }
+
+        if (!confirm(`Confirma a importação de ${this.bulkDataToImport.length} leads para o Supabase?`)) return;
+
+        try {
+            console.log(`📥 Importando ${this.bulkDataToImport.length} leads em massa...`);
+            
+            let importedCount = 0;
+            let errorCount = 0;
+            
+            for (const item of this.bulkDataToImport) {
+                const leadData = {
+                    nome_completo: item.nome,
+                    cpf: item.cpf.replace(/[^\d]/g, ''),
+                    email: item.email,
+                    telefone: item.telefone,
+                    endereco: this.buildCompleteAddress(item),
+                    produtos: [{
+                        nome: item.produto || 'Kit 12 caixas organizadoras + brinde',
+                        preco: item.valor
+                    }],
+                    valor_total: item.valor,
+                    meio_pagamento: 'PIX',
+                    origem: 'direto',
+                    etapa_atual: 1,
+                    status_pagamento: 'pendente',
+                    order_bumps: [],
+                    data_compra: new Date().toISOString()
+                };
+                
+                const result = await this.dbService.createLead(leadData);
+                
+                if (result.success) {
+                    importedCount++;
+                } else {
+                    errorCount++;
+                    console.error('❌ Erro ao importar lead:', item.nome, result.error);
+                }
+            }
+            
+            await this.loadLeadsFromSupabase();
+            this.clearBulkData();
+            this.showView('leadsView');
+            
+            this.showNotification(`Importação concluída: ${importedCount} leads importados, ${errorCount} erros`, 'success');
+            
+        } catch (error) {
+            console.error('❌ Erro na importação em massa:', error);
+            this.showNotification('Erro na importação: ' + error.message, 'error');
         }
     }
 
@@ -753,10 +1259,12 @@ export class AdminPanel {
         
         const searchInput = document.getElementById('searchInput');
         const dateFilter = document.getElementById('dateFilter');
+        const dateFilterEnd = document.getElementById('dateFilterEnd');
         const stageFilter = document.getElementById('stageFilter');
         
         const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
         const dateValue = dateFilter ? dateFilter.value : '';
+        const dateEndValue = dateFilterEnd ? dateFilterEnd.value : '';
         const stageValue = stageFilter ? stageFilter.value : 'all';
         
         this.filteredLeads = this.leads.filter(lead => {
@@ -771,7 +1279,15 @@ export class AdminPanel {
             if (dateValue) {
                 const leadDate = new Date(lead.created_at);
                 const filterDate = new Date(dateValue);
-                if (leadDate.toDateString() !== filterDate.toDateString()) return false;
+                
+                if (dateEndValue) {
+                    // Filtro de intervalo de datas
+                    const filterEndDate = new Date(dateEndValue);
+                    if (leadDate < filterDate || leadDate > filterEndDate) return false;
+                } else {
+                    // Filtro de data única
+                    if (leadDate.toDateString() !== filterDate.toDateString()) return false;
+                }
             }
             
             // Filtro de etapa

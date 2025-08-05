@@ -668,6 +668,24 @@
                     </div>
                 </div>
 
+                <!-- Contadores por Etapa -->
+                <div class="leads-stats">
+                    <div class="stat-card" style="grid-column: 1 / -1;">
+                        <div class="stat-label" style="margin-bottom: 15px; font-size: 1.1rem; font-weight: 700; color: #1e4a6b;">
+                            <i class="fas fa-chart-bar"></i> Leads por Etapa
+                        </div>
+                        <div id="stageCountContainer" style="
+                            display: grid;
+                            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+                            gap: 10px;
+                            max-height: 200px;
+                            overflow-y: auto;
+                        ">
+                            <!-- Contadores serão inseridos aqui -->
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Tabela de Leads -->
                 <div class="leads-table-container">
                     <div class="table-header">
@@ -678,6 +696,12 @@
                         <div class="table-actions">
                             <button class="action-button" id="refreshButton">
                                 <i class="fas fa-sync"></i> Atualizar
+                            </button>
+                            <button class="action-button" id="advanceAllLeads" style="background: rgba(40, 167, 69, 0.3);">
+                                <i class="fas fa-forward"></i> Avançar Todos
+                            </button>
+                            <button class="action-button" id="regressAllLeads" style="background: rgba(255, 193, 7, 0.3);">
+                                <i class="fas fa-backward"></i> Voltar Todos
                             </button>
                         </div>
                     </div>
@@ -690,23 +714,50 @@
                                 <input type="text" id="searchInput" placeholder="Digite nome ou CPF...">
                             </div>
                             <div class="filter-group">
-                                <label for="dateFilter">Data:</label>
+                                <label for="dateFilter">Data Início:</label>
                                 <input type="date" id="dateFilter">
+                            </div>
+                            <div class="filter-group">
+                                <label for="dateFilterEnd">Data Fim (opcional):</label>
+                                <input type="date" id="dateFilterEnd">
                             </div>
                             <div class="filter-group">
                                 <label for="stageFilter">Etapa:</label>
                                 <select id="stageFilter">
                                     <option value="all">Todas</option>
-                                    <option value="1">1 - Criado</option>
-                                    <option value="11">11 - Alfândega</option>
-                                    <option value="12">12 - Liberado</option>
+                                    <option value="1">Etapa 1</option>
+                                    <option value="2">Etapa 2</option>
+                                    <option value="3">Etapa 3</option>
+                                    <option value="4">Etapa 4</option>
+                                    <option value="5">Etapa 5</option>
+                                    <option value="6">Etapa 6</option>
+                                    <option value="7">Etapa 7</option>
+                                    <option value="8">Etapa 8</option>
+                                    <option value="9">Etapa 9</option>
+                                    <option value="10">Etapa 10</option>
+                                    <option value="11">Etapa 11</option>
+                                    <option value="12">Etapa 12</option>
+                                    <option value="13">Etapa 13</option>
+                                    <option value="14">Etapa 14</option>
+                                    <option value="15">Etapa 15</option>
+                                    <option value="16">Etapa 16</option>
+                                    <option value="17">Etapa 17</option>
+                                    <option value="18">Etapa 18</option>
+                                    <option value="19">Etapa 19</option>
+                                    <option value="20">Etapa 20</option>
+                                    <option value="21">Etapa 21</option>
+                                    <option value="22">Etapa 22</option>
+                                    <option value="23">Etapa 23</option>
+                                    <option value="24">Etapa 24</option>
+                                    <option value="25">Etapa 25</option>
+                                    <option value="26">Etapa 26</option>
                                 </select>
                             </div>
-                            <div class="filter-group">
-                                <button class="filter-button" id="applyFiltersButton">
-                                    <i class="fas fa-filter"></i> Aplicar
-                                </button>
-                            </div>
+                        </div>
+                        <div style="margin-top: 15px;">
+                            <button class="filter-button" id="applyFiltersButton">
+                                <i class="fas fa-filter"></i> Aplicar Filtros
+                            </button>
                         </div>
                     </div>
 
@@ -849,8 +900,8 @@
                                 <i class="fas fa-info-circle"></i> Formato dos Dados
                             </h4>
                             <p style="margin: 0; color: #495057; line-height: 1.6;">
-                                Cole os dados separados por TAB ou espaços duplos:<br>
-                                <strong>Nome | Email | Telefone | CPF | Produto | Valor</strong>
+                                Cole os dados da planilha (separados por TAB):<br>
+                                <strong>Nome | Email | Telefone | Documento | Produto | Valor | Endereço | Numero | Complemento | Bairro | Cep | Cidade | Estado | Pais</strong>
                             </p>
                         </div>
                         
@@ -858,7 +909,7 @@
                             <label for="bulkDataTextarea">Dados para Importar:</label>
                             <textarea 
                                 id="bulkDataTextarea" 
-                                placeholder="João Silva	joao@email.com	11999999999	12345678901	Kit Caixas	67.90"
+                                placeholder="João Silva Santos	joao@email.com	11999999999	12345678901	Kit 12 caixas organizadoras	67.90	Rua das Flores	123	Apto 45	Centro	01234-567	São Paulo	SP	BR"
                                 style="
                                     width: 100%;
                                     min-height: 200px;
@@ -931,6 +982,40 @@
         </main>
     </div>
 
+    <style>
+        .stage-count-item {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 8px 12px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        
+        .stage-count-item:hover {
+            background: #e3f2fd;
+            border-color: #1e4a6b;
+        }
+        
+        .stage-number {
+            display: block;
+            font-size: 0.8rem;
+            color: #666;
+            font-weight: 500;
+        }
+        
+        .stage-count {
+            display: block;
+            font-size: 1.2rem;
+            color: #1e4a6b;
+            font-weight: 700;
+            margin-top: 2px;
+        }
+        
+        .filters-grid {
+            grid-template-columns: 2fr 1fr 1fr 1fr !important;
+        }
+    </style>
     <script type="module" src="src/pages/admin-panel.jsx"></script>
 </body>
 </html>
