@@ -1413,7 +1413,7 @@ export class AdminPanel {
             this.showNotification('Erro ao recarregar sistema da transportadora', 'error');
         } finally {
             if (button) {
-                button.innerHTML = '<i class="fas fa-redo"></i> Recarregar Transportadora';
+                button.innerHTML = '<i class="fas fa-redo"></i> Reinicializar Sistema';
                 button.disabled = false;
             }
         }

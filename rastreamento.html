@@ -235,6 +235,54 @@
                         </button>
                         
                         <style>
+                            .track-button {
+                                background: linear-gradient(180deg, #345c7a, #4a6b8a, #345c7a) !important;
+                                color: #fff !important;
+                                border: none;
+                                padding: 15px 40px;
+                                font-size: 1.1rem;
+                                font-weight: 600;
+                                border-radius: 8px !important;
+                                cursor: pointer;
+                                transition: all 0.3s ease;
+                                box-shadow: 0 4px 15px rgba(52, 92, 122, 0.8) !important;
+                                animation: trackButtonPulse 1.5s ease-in-out infinite !important;
+                                width: 100%;
+                                font-family: 'Orbitron', sans-serif;
+                                font-weight: 700;
+                                letter-spacing: 0.6px !important;
+                                text-transform: uppercase !important;
+                                white-space: nowrap !important;
+                            }
+                            
+                            .track-button:hover:not(:disabled) {
+                                background: linear-gradient(180deg, #2a4a62, #345c7a, #2a4a62) !important;
+                                transform: translateY(-2px) !important;
+                                box-shadow: 0 6px 20px rgba(52, 92, 122, 0.7) !important;
+                                animation-play-state: running !important;
+                            }
+                            
+                            @keyframes trackButtonPulse {
+                                0% {
+                                    transform: scale(1) !important;
+                                    box-shadow: 0 4px 15px rgba(30, 74, 107, 0.8) !important;
+                                }
+                                50% {
+                                    transform: scale(1.08) !important;
+                                    box-shadow: 0 8px 30px rgba(30, 74, 107, 0.9) !important;
+                                }
+                                100% {
+                                    transform: scale(1) !important;
+                                    box-shadow: 0 4px 15px rgba(30, 74, 107, 0.8) !important;
+                                }
+                            }
+                            
+                            .track-button:disabled {
+                                opacity: 0.7;
+                                cursor: not-allowed;
+                                transform: none;
+                            }
+                            
                             @keyframes slideInRight {
                                 from {
                                     opacity: 0;
