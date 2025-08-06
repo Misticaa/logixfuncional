@@ -85,9 +85,8 @@ export class DatabaseService {
     getSupabaseUrl() {
         // Múltiplas fontes de configuração com validação
         const sources = [
-            import.meta.env?.VITE_SUPABASE_URL,
+            import.meta.env.VITE_SUPABASE_URL,
             window.VITE_SUPABASE_URL,
-            process.env?.VITE_SUPABASE_URL,
             localStorage.getItem('supabase_url'),
             'https://coegmiyojkubtksfhwky.supabase.co'
         ];
@@ -106,9 +105,8 @@ export class DatabaseService {
     getSupabaseKey() {
         // Múltiplas fontes de configuração com validação
         const sources = [
-            import.meta.env?.VITE_SUPABASE_ANON_KEY,
+            import.meta.env.VITE_SUPABASE_ANON_KEY,
             window.VITE_SUPABASE_ANON_KEY,
-            process.env?.VITE_SUPABASE_ANON_KEY,
             localStorage.getItem('supabase_key'),
             'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNvZWdtaXlvamt1YnRrc2Zod2t5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQ5NzI5NzQsImV4cCI6MjA1MDU0ODk3NH0.Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8'
         ];
