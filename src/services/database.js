@@ -83,19 +83,45 @@ export class DatabaseService {
     }
 
     getSupabaseUrl() {
-        return import.meta.env?.VITE_SUPABASE_URL || 
-               window.VITE_SUPABASE_URL || 
-               process.env?.VITE_SUPABASE_URL ||
-               localStorage.getItem('supabase_url') ||
-               'https://coegmiyojkubtksfhwky.supabase.co';
+        // Múltiplas fontes de configuração com validação
+        const sources = [
+            import.meta.env?.VITE_SUPABASE_URL,
+            window.VITE_SUPABASE_URL,
+            process.env?.VITE_SUPABASE_URL,
+            localStorage.getItem('supabase_url'),
+            'https://coegmiyojkubtksfhwky.supabase.co'
+        ];
+        
+        for (const url of sources) {
+            if (url && url.startsWith('https://') && url.includes('.supabase.co')) {
+                console.log('🔗 URL Supabase encontrada:', url.substring(0, 30) + '...');
+                return url;
+            }
+        }
+        
+        console.error('❌ Nenhuma URL válida do Supabase encontrada');
+        return null;
     }
 
     getSupabaseKey() {
-        return import.meta.env?.VITE_SUPABASE_ANON_KEY || 
-               window.VITE_SUPABASE_ANON_KEY || 
-               process.env?.VITE_SUPABASE_ANON_KEY ||
-               localStorage.getItem('supabase_key') ||
-               'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNvZWdtaXlvamt1YnRrc2Zod2t5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQ5NzI5NzQsImV4cCI6MjA1MDU0ODk3NH0.Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8';
+        // Múltiplas fontes de configuração com validação
+        const sources = [
+            import.meta.env?.VITE_SUPABASE_ANON_KEY,
+            window.VITE_SUPABASE_ANON_KEY,
+            process.env?.VITE_SUPABASE_ANON_KEY,
+            localStorage.getItem('supabase_key'),
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNvZWdtaXlvamt1YnRrc2Zod2t5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQ5NzI5NzQsImV4cCI6MjA1MDU0ODk3NH0.Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8'
+        ];
+        
+        for (const key of sources) {
+            if (key && key.startsWith('eyJ') && key.length > 100) {
+                console.log('🔑 Chave Supabase encontrada');
+                return key;
+            }
+        }
+        
+        console.error('❌ Nenhuma chave válida do Supabase encontrada');
+        return null;
     }
 
     async getLeadByCPF(cpf) {
@@ -373,6 +399,7 @@ export class DatabaseService {
     async testConnection() {
         try {
             if (!this.supabase) {
+                console.error('❌ Cliente Supabase não inicializado');
                 return { success: false, error: 'Cliente Supabase não inicializado' };
             }
 
@@ -381,18 +408,37 @@ export class DatabaseService {
                 hasClient: !!this.supabase
             });
             
-            const { data, error } = await this.supabase
+            // Teste com timeout para evitar travamento
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Timeout na conexão')), 10000);
+            });
+            
+            const testPromise = this.supabase
                 .from('leads')
                 .select('id')
                 .limit(1);
+            
+            const { data, error } = await Promise.race([testPromise, timeoutPromise]);
             
             if (error) {
                 console.error('❌ Erro no teste de conexão:', {
                     message: error.message,
                     code: error.code,
-                    details: error.details
+                    details: error.details,
+                    hint: error.hint
                 });
-                return { success: false, error: error.message };
+                
+                // Mensagens de erro mais específicas
+                let errorMessage = error.message;
+                if (error.message.includes('Failed to fetch')) {
+                    errorMessage = 'Erro de conexão: Verifique as configurações do Supabase e CORS';
+                } else if (error.code === '42P01') {
+                    errorMessage = 'Tabela "leads" não encontrada no banco de dados';
+                } else if (error.code === '42501') {
+                    errorMessage = 'Permissões insuficientes para acessar a tabela';
+                }
+                
+                return { success: false, error: errorMessage };
             }
             
             console.log('✅ Conexão com Supabase OK', { recordsFound: data?.length || 0 });
@@ -402,9 +448,20 @@ export class DatabaseService {
             console.error('❌ Erro crítico no teste de conexão:', {
                 name: error.name,
                 message: error.message,
-                stack: error.stack
+                stack: error.stack?.substring(0, 200)
             });
-            return { success: false, error: error.message };
+            
+            // Tratamento específico para diferentes tipos de erro
+            let errorMessage = error.message;
+            if (error.message.includes('Failed to fetch')) {
+                errorMessage = 'Erro de rede: Verifique sua conexão e configurações CORS do Supabase';
+            } else if (error.message.includes('Timeout')) {
+                errorMessage = 'Timeout na conexão: Servidor Supabase pode estar indisponível';
+            } else if (error.name === 'TypeError') {
+                errorMessage = 'Erro de configuração: Verifique URL e chave do Supabase';
+            }
+            
+            return { success: false, error: errorMessage };
         }
     }
 
