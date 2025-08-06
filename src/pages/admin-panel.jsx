@@ -1383,6 +1383,39 @@ export class AdminPanel {
         }, 30000);
     }
 
+    async syncWithSupabase() {
+        try {
+            console.log('🔄 Sincronizando com Supabase...');
+            
+            // Atualizar status
+            this.updateSupabaseStatus('Sincronizando...', 'connecting');
+            
+            // Buscar todos os leads
+            const result = await this.dbService.getAllLeads();
+            
+            if (result.success) {
+                this.allLeads = result.data;
+                this.filteredLeads = [...this.allLeads];
+                
+                // Atualizar interface
+                this.renderLeadsTable();
+                this.updateStats();
+                this.updateStageCounters();
+                
+                this.updateSupabaseStatus('Conectado e sincronizado', 'connected');
+                console.log('✅ Sincronização com Supabase concluída');
+                
+                return { success: true, count: this.allLeads.length };
+            } else {
+                throw new Error(result.error);
+            }
+        } catch (error) {
+            console.error('❌ Erro na sincronização:', error);
+            this.updateSupabaseStatus(`Erro: ${error.message}`, 'error');
+            return { success: false, error: error.message };
+        }
+    }
+
     async reloadTransportadoraSystem() {
         console.log('🔄 Iniciando recarregamento da transportadora...');
         
