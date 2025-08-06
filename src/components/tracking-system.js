@@ -86,8 +86,7 @@ export class TrackingSystem {
     async handleFormSubmit(e) {
         e.preventDefault();
         
-        const cpfInput = document.getElementById('cpfInput');
-        const cpf = cpfInput.value.replace(/[^\d]/g, '');
+        const cpf = document.getElementById('cpfInput').value.replace(/[^\d]/g, '');
         
         if (!CPFValidator.isValidCPF(cpf)) {
             this.showError('CPF inválido. Verifique os dados e tente novamente.');
@@ -95,42 +94,27 @@ export class TrackingSystem {
         }
 
         this.currentCPF = cpf;
-        await this.handleTrackingSubmit();
+        await this.performTracking();
     }
 
-    async handleTrackingSubmit() {
+    async performTracking() {
         console.log('🔍 Iniciando rastreamento para CPF:', this.currentCPF);
         console.log('🎯 Buscando dados no Supabase...');
         
+        
+        // Mostrar loading
         this.showLoadingNotification();
         
         try {
             // Buscar no Supabase primeiro
+            // Buscar dados no Supabase primeiro
+            console.log('🔍 Buscando lead no Supabase...');
             const leadResult = await this.dbService.getLeadByCPF(this.currentCPF);
-            
             if (leadResult.success && leadResult.data) {
+            if (leadResult.success && leadResult.data) {
+                // Lead encontrado no Supabase
                 console.log('✅ Lead encontrado no Supabase:', leadResult.data);
-                
-                this.userData = {
-                    nome: leadResult.data.nome_completo,
-                    cpf: this.currentCPF,
-                    email: leadResult.data.email,
-                    telefone: leadResult.data.telefone,
-                    endereco: leadResult.data.endereco,
-                    nascimento: this.generateBirthDate(this.currentCPF),
-                    situacao: 'REGULAR'
-                };
-                
-                this.leadData = leadResult.data;
-                
-                console.log('📦 Dados completos do usuário (Supabase):', {
-                    nome: this.userData.nome,
-                    cpf: this.userData.cpf,
-                    email: this.userData.email,
-                    telefone: this.userData.telefone,
-                    etapa_atual: this.leadData.etapa_atual
-                });
-                
+                this.setupUserDataFromLead(leadResult.data);
                 this.closeLoadingNotification();
                 this.displayResults();
                 
@@ -144,14 +128,99 @@ export class TrackingSystem {
             } else {
                 console.log('❌ CPF não encontrado no Supabase');
                 this.closeLoadingNotification();
-                this.showCPFNotFoundError();
+                    // CPF não encontrado
+                    this.closeLoadingNotification();
+                    this.showCPFNotFoundFlow();
             }
             
         } catch (error) {
             console.error('❌ Erro no rastreamento:', error);
             this.closeLoadingNotification();
-            this.showError('Erro ao buscar dados. Tente novamente.');
+            this.showCPFNotFoundFlow();
         }
+    }
+
+    setupUserDataFromLead(leadData) {
+        this.userData = {
+            nome: leadData.nome_completo,
+            cpf: this.currentCPF,
+            email: leadData.email,
+            telefone: leadData.telefone,
+            endereco: leadData.endereco,
+            nascimento: this.generateBirthDate(this.currentCPF),
+            situacao: 'REGULAR'
+        };
+        this.leadData = leadData;
+        
+        console.log('📦 Dados do usuário configurados (Supabase):', this.userData);
+        console.log('📦 Etapa atual do lead:', this.leadData.etapa_atual);
+    }
+
+    setupUserDataFromAPI(apiData) {
+        this.userData = {
+            nome: apiData.nome,
+            cpf: this.currentCPF,
+            email: null,
+            telefone: null,
+            endereco: null,
+            nascimento: apiData.nascimento,
+            situacao: apiData.situacao || 'REGULAR'
+        };
+        this.leadData = null;
+        
+        console.log('✅ Dados obtidos via API externa:', this.userData);
+    }
+
+    showCPFNotFoundFlow() {
+        this.showError('CPF não identificado ou CPF inválido');
+        
+        // Após 2 segundos, mostrar popup
+        setTimeout(() => {
+            this.showNotFoundPopup();
+        }, 2000);
+    }
+
+    showNotFoundPopup() {
+        const popup = document.createElement('div');
+        popup.id = 'notFoundPopup';
+        popup.style.cssText = `
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: white;
+            border: 2px solid #1e4a6b;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            max-width: 300px;
+            animation: slideInRight 0.3s ease;
+            cursor: pointer;
+        `;
+        
+        popup.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                <i class="fas fa-search" style="color: #1e4a6b; font-size: 1.2rem;"></i>
+                <strong style="color: #2c3e50;">Não encontrou sua encomenda?</strong>
+            </div>
+            <p style="margin: 0; color: #666; font-size: 0.9rem;">
+                Clique aqui para verificar
+            </p>
+        `;
+        
+        popup.addEventListener('click', () => {
+            window.location.href = 'https://logixexpresscom.netlify.app/';
+        });
+        
+        document.body.appendChild(popup);
+        
+        // Auto-remover após 10 segundos
+        setTimeout(() => {
+            if (popup.parentNode) {
+                popup.style.animation = 'slideOutRight 0.3s ease';
+                setTimeout(() => popup.remove(), 300);
+            }
+        }, 10000);
     }
 
     showCPFNotFoundError() {
@@ -636,21 +705,12 @@ export class TrackingSystem {
     async showDeliveryModal(stepId, deliveryValue, attemptNumber, isLoopingStage = false) {
         console.log(`🚚 Abrindo modal de reenvio - Etapa ${stepId} - Tentativa ${attemptNumber} - R$ ${deliveryValue.toFixed(2)}`);
         
-        if (isLoopingStage) {
+                // Lead não encontrado, buscar via API externa
+                console.log('🌐 Lead não encontrado no Supabase, buscando via API externa...');
             console.log('🔄 Etapa com loop infinito detectada');
         }
         
-        if (this.userData) {
-            try {
-                console.log('🔄 Gerando PIX automático para tentativa de entrega...');
-                
-                const stageType = this.getDeliveryStageType(attemptNumber);
-                const pixResult = await this.zentraPayService.generatePixForStage(
-                    this.userData, 
-                    stageType
-                );
-                
-                if (pixResult.success) {
+                    this.setupUserDataFromAPI(apiData.DADOS);
                     console.log('✅ PIX de tentativa de entrega gerado automaticamente!');
                     this.showDeliveryPixModal(stepId, deliveryValue, attemptNumber, pixResult, isLoopingStage);
                 } else {
