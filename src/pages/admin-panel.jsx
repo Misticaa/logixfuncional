@@ -1383,6 +1383,14 @@ export class AdminPanel {
         }, 30000);
     }
 
+    updateSupabaseStatus(message, isError = false) {
+        const statusElement = document.getElementById('supabase-status');
+        if (statusElement) {
+            statusElement.textContent = message;
+            statusElement.className = isError ? 'error' : 'success';
+        }
+    }
+
     async syncWithSupabase() {
         try {
             console.log('🔄 Sincronizando com Supabase...');
