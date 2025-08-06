@@ -356,6 +356,42 @@ export class AdminPanel {
         }
     }
 
+    updateStageCounters(stageData) {
+        const container = document.getElementById('stageCountContainer');
+        if (!container) return;
+
+        container.innerHTML = '';
+
+        // Criar contadores para cada etapa (1-26)
+        for (let stage = 1; stage <= 26; stage++) {
+            const count = stageData[stage] || 0;
+            
+            const stageItem = document.createElement('div');
+            stageItem.className = 'stage-count-item';
+            stageItem.innerHTML = `
+                <span class="stage-number">Etapa ${stage}</span>
+                <span class="stage-count">${count}</span>
+            `;
+            
+            // Adicionar evento de clique para filtrar por etapa
+            stageItem.addEventListener('click', () => {
+                this.filterByStage(stage);
+            });
+            
+            container.appendChild(stageItem);
+        }
+
+        console.log('✅ Contadores de etapa atualizados');
+    }
+
+    filterByStage(stage) {
+        const stageFilter = document.getElementById('stageFilter');
+        if (stageFilter) {
+            stageFilter.value = stage;
+            this.applyFilters();
+        }
+    }
+
     async handleAddLead(e) {
         e.preventDefault();
         
@@ -1424,7 +1460,8 @@ export class AdminPanel {
         }
     }
 
-    updateStats() {
+    // Método para atualizar estatísticas
+    updateStats(leads) {
         // Update statistics counters
         const leadsCount = this.allLeads.length;
         const selectedCount = this.selectedLeads.size;
