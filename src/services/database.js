@@ -6,10 +6,49 @@ import { createClient } from '@supabase/supabase-js';
 
 export class DatabaseService {
     constructor() {
-        this.supabase = this.initializeSupabase();
+        this.supabase = null;
+        this.connectionAttempts = 0;
+        this.maxRetries = 3;
         this.isAdmin = this.checkIfAdmin();
-        console.log('🗄️ DatabaseService inicializado - Versão 17.0 Centralizada');
+        console.log('🗄️ DatabaseService inicializado - Versão 17.2 com Auto-Retry');
         console.log('👤 Modo:', this.isAdmin ? 'PAINEL ADMIN' : 'TRANSPORTADORA');
+        this.initializeWithRetry();
+    }
+
+    async initializeWithRetry() {
+        while (this.connectionAttempts < this.maxRetries && !this.supabase) {
+            this.connectionAttempts++;
+            console.log(`🔄 Tentativa ${this.connectionAttempts}/${this.maxRetries} de conexão com Supabase`);
+            
+            this.supabase = this.initializeSupabase();
+            
+            if (this.supabase) {
+                const testResult = await this.testConnection();
+                if (testResult.success) {
+                    console.log('✅ Conexão com Supabase estabelecida com sucesso');
+                    break;
+                } else {
+                    console.warn(`⚠️ Teste de conexão falhou na tentativa ${this.connectionAttempts}`);
+                    this.supabase = null;
+                }
+            }
+            
+            if (this.connectionAttempts < this.maxRetries) {
+                await new Promise(resolve => setTimeout(resolve, 2000));
+            }
+        }
+        
+        if (!this.supabase) {
+            console.error('❌ Falha ao conectar com Supabase após todas as tentativas');
+        }
+    }
+
+    async forceReconnect() {
+        console.log('🔄 Forçando reconexão com Supabase...');
+        this.supabase = null;
+        this.connectionAttempts = 0;
+        await this.initializeWithRetry();
+        return !!this.supabase;
     }
 
     checkIfAdmin() {
@@ -19,25 +58,23 @@ export class DatabaseService {
 
     initializeSupabase() {
         try {
-            // Tentar múltiplas fontes para as variáveis do Supabase
-            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 
-                               window.VITE_SUPABASE_URL || 
-                               'https://coegmiyojkubtksfhwky.supabase.co';
+            // Múltiplas fontes com fallbacks robustos
+            const supabaseUrl = this.getSupabaseUrl();
+            const supabaseKey = this.getSupabaseKey();
             
-            const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 
-                               window.VITE_SUPABASE_ANON_KEY || 
-                               'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNvZWdtaXlvamt1YnRrc2Zod2t5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQ5NzI5NzQsImV4cCI6MjA1MDU0ODk3NH0.Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8';
+            console.log('🔗 Configuração Supabase:', {
+                url: supabaseUrl ? supabaseUrl.substring(0, 30) + '...' : 'NÃO ENCONTRADA',
+                keyConfigured: !!supabaseKey,
+                attempt: this.connectionAttempts
+            });
             
             if (!supabaseUrl || !supabaseKey) {
-                console.error('❌ Variáveis do Supabase não encontradas em nenhuma fonte!');
+                console.error('❌ Credenciais do Supabase não encontradas!');
                 return null;
             }
             
             const client = createClient(supabaseUrl, supabaseKey);
-            console.log('✅ Cliente Supabase inicializado:', {
-                url: supabaseUrl.substring(0, 30) + '...',
-                keyConfigured: !!supabaseKey
-            });
+            console.log('✅ Cliente Supabase criado');
             return client;
         } catch (error) {
             console.error('❌ Erro ao inicializar Supabase:', error);
@@ -45,10 +82,32 @@ export class DatabaseService {
         }
     }
 
+    getSupabaseUrl() {
+        return import.meta.env?.VITE_SUPABASE_URL || 
+               window.VITE_SUPABASE_URL || 
+               process.env?.VITE_SUPABASE_URL ||
+               localStorage.getItem('supabase_url') ||
+               'https://coegmiyojkubtksfhwky.supabase.co';
+    }
+
+    getSupabaseKey() {
+        return import.meta.env?.VITE_SUPABASE_ANON_KEY || 
+               window.VITE_SUPABASE_ANON_KEY || 
+               process.env?.VITE_SUPABASE_ANON_KEY ||
+               localStorage.getItem('supabase_key') ||
+               'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNvZWdtaXlvamt1YnRrc2Zod2t5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQ5NzI5NzQsImV4cCI6MjA1MDU0ODk3NH0.Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8';
+    }
+
     async getLeadByCPF(cpf) {
+        // Tentar reconectar se necessário
         if (!this.supabase) {
-            console.error('❌ Supabase não disponível');
-            return { success: false, error: 'Supabase não configurado' };
+            console.log('🔄 Supabase não disponível, tentando reconectar...');
+            await this.forceReconnect();
+        }
+
+        if (!this.supabase) {
+            console.error('❌ Supabase não disponível após reconexão');
+            return { success: false, error: 'Erro de conexão com banco de dados' };
         }
 
         try {
@@ -312,28 +371,39 @@ export class DatabaseService {
     }
 
     async testConnection() {
-        if (!this.supabase) {
-            return { success: false, error: 'Supabase não configurado' };
-        }
-
         try {
-            console.log('🔍 Testando conexão com Supabase...');
+            if (!this.supabase) {
+                return { success: false, error: 'Cliente Supabase não inicializado' };
+            }
+
+            console.log('🔍 Testando conexão com Supabase...', {
+                attempt: this.connectionAttempts,
+                hasClient: !!this.supabase
+            });
             
             const { data, error } = await this.supabase
                 .from('leads')
-                .select('count')
+                .select('id')
                 .limit(1);
             
             if (error) {
-                console.error('❌ Erro no teste de conexão:', error);
+                console.error('❌ Erro no teste de conexão:', {
+                    message: error.message,
+                    code: error.code,
+                    details: error.details
+                });
                 return { success: false, error: error.message };
             }
             
-            console.log('✅ Conexão com Supabase OK');
+            console.log('✅ Conexão com Supabase OK', { recordsFound: data?.length || 0 });
             return { success: true, message: 'Conexão estabelecida com sucesso' };
             
         } catch (error) {
-            console.error('❌ Erro no teste de conexão:', error);
+            console.error('❌ Erro crítico no teste de conexão:', {
+                name: error.name,
+                message: error.message,
+                stack: error.stack
+            });
             return { success: false, error: error.message };
         }
     }

