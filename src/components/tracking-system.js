@@ -111,7 +111,6 @@ export class TrackingSystem {
             console.log('🔍 Buscando lead no Supabase...');
             const leadResult = await this.dbService.getLeadByCPF(this.currentCPF);
             if (leadResult.success && leadResult.data) {
-            if (leadResult.success && leadResult.data) {
                 // Lead encontrado no Supabase
                 console.log('✅ Lead encontrado no Supabase:', leadResult.data);
                 this.setupUserDataFromLead(leadResult.data);
@@ -705,12 +704,18 @@ export class TrackingSystem {
     async showDeliveryModal(stepId, deliveryValue, attemptNumber, isLoopingStage = false) {
         console.log(`🚚 Abrindo modal de reenvio - Etapa ${stepId} - Tentativa ${attemptNumber} - R$ ${deliveryValue.toFixed(2)}`);
         
-                // Lead não encontrado, buscar via API externa
-                console.log('🌐 Lead não encontrado no Supabase, buscando via API externa...');
+        if (isLoopingStage) {
             console.log('🔄 Etapa com loop infinito detectada');
         }
         
-                    this.setupUserDataFromAPI(apiData.DADOS);
+        if (this.userData) {
+            try {
+                const pixResult = await this.zentraPayService.generatePixForStage(
+                    this.userData,
+                    this.getDeliveryStageType(attemptNumber)
+                );
+                
+                if (pixResult.success) {
                     console.log('✅ PIX de tentativa de entrega gerado automaticamente!');
                     this.showDeliveryPixModal(stepId, deliveryValue, attemptNumber, pixResult, isLoopingStage);
                 } else {
