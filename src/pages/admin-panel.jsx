@@ -1424,6 +1424,33 @@ export class AdminPanel {
         }
     }
 
+    updateStats() {
+        // Update statistics counters
+        const leadsCount = this.allLeads.length;
+        const selectedCount = this.selectedLeads.size;
+        const paidCount = this.allLeads.filter(lead => lead.status_pagamento === 'pago').length;
+        const pendingCount = this.allLeads.filter(lead => lead.status_pagamento === 'pendente').length;
+
+        this.updateElement('leadsCount', leadsCount);
+        this.updateElement('selectedCount', `${selectedCount} selecionados`);
+        this.updateElement('paidCount', paidCount);
+        this.updateElement('pendingCount', pendingCount);
+
+        console.log('📊 Estatísticas atualizadas:', {
+            total: leadsCount,
+            selected: selectedCount,
+            paid: paidCount,
+            pending: pendingCount
+        });
+    }
+
+    updateElement(id, text) {
+        const element = document.getElementById(id);
+        if (element) {
+            element.textContent = text;
+        }
+    }
+
     async reloadTransportadoraSystem() {
         console.log('🔄 Iniciando recarregamento da transportadora...');
         
