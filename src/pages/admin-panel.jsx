@@ -16,6 +16,7 @@ export class AdminPanel {
         this.editingLead = null;
         this.isSyncing = false;
         this.stageCount = {};
+        this.stageCountData = {};
         
         console.log('🎯 AdminPanel inicializado - VERSÃO 17.0 COMANDO CENTRAL');
         console.log('🗄️ Fonte de dados: EXCLUSIVAMENTE Supabase');
@@ -30,7 +31,14 @@ export class AdminPanel {
             this.checkLoginStatus();
             
             if (this.isLoggedIn) {
+                // Configurar eventos de busca inteligente
+                this.setupSmartSearch();
+                
+                // Configurar filtros de data
+                this.setupDateFilters();
+                
                 await this.loadLeadsFromSupabase();
+                await this.loadStageCountData();
                 this.renderLeadsTable();
                 this.updateLeadsCount();
                 await this.loadStageCount();
@@ -40,6 +48,45 @@ export class AdminPanel {
             console.log('✅ Painel de comando central inicializado com sucesso');
         } catch (error) {
             console.error('❌ Erro na inicialização do painel:', error);
+        }
+    }
+
+    setupSmartSearch() {
+        const searchInput = document.getElementById('searchInput');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                const value = e.target.value;
+                
+                // Se for números, aplicar máscara de CPF
+                if (/^\d+$/.test(value.replace(/[^\d]/g, ''))) {
+                    const cleanValue = value.replace(/[^\d]/g, '');
+                    if (cleanValue.length <= 11) {
+                        e.target.value = this.applyCPFMask(cleanValue);
+                    }
+                }
+            });
+        }
+    }
+
+    applyCPFMask(value) {
+        if (value.length > 9) {
+            return value.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+        } else if (value.length > 6) {
+            return value.replace(/(\d{3})(\d{3})(\d{3})/, '$1.$2.$3');
+        } else if (value.length > 3) {
+            return value.replace(/(\d{3})(\d{3})/, '$1.$2');
+        }
+        return value;
+    }
+
+    setupDateFilters() {
+        const startDateInput = document.getElementById('dateFilter');
+        const endDateInput = document.getElementById('dateFilterEnd');
+        
+        if (startDateInput && endDateInput) {
+            // Configurar data de hoje como padrão
+            const today = new Date().toISOString().split('T')[0];
+            startDateInput.value = today;
         }
     }
 
@@ -176,6 +223,7 @@ export class AdminPanel {
         sessionStorage.setItem('admin_logged_in', 'true');
         this.showAdminPanel();
         this.loadLeadsFromSupabase();
+        this.populateStageFilter();
     }
 
     handleLogout() {
@@ -233,6 +281,7 @@ export class AdminPanel {
                 this.leads = result.data || [];
                 this.filteredLeads = [...this.leads];
                 await this.loadStageCount();
+                await this.loadStageCountData();
                 console.log(`📦 ${this.leads.length} leads carregados do Supabase`);
                 
                 this.renderLeadsTable();
@@ -268,26 +317,37 @@ export class AdminPanel {
         }
     }
 
-    updateStageCountDisplay() {
-        // Atualizar contadores de etapa na interface
-        const stageCountContainer = document.getElementById('stageCountContainer');
-        if (stageCountContainer && this.stageCount) {
-            let html = '';
+    async loadStageCountData() {
+        try {
+            const result = await this.dbService.getLeadsByStage();
             
-            // Mostrar apenas etapas com leads
-            for (let stage = 1; stage <= 26; stage++) {
-                const count = this.stageCount[stage] || 0;
-                if (count > 0) {
-                    html += `
-                        <div class="stage-count-item">
-                            <span class="stage-number">Etapa ${stage}</span>
-                            <span class="stage-count">${count}</span>
-                        </div>
-                    `;
-                }
+            if (result.success) {
+                this.stageCountData = result.data;
+                this.updateStageCountDisplay();
             }
+        } catch (error) {
+            console.error('❌ Erro ao carregar contagem por etapa:', error);
+        }
+    }
+
+    updateStageCountDisplay() {
+        const container = document.getElementById('stageCountContainer');
+        if (!container) return;
+        
+        container.innerHTML = '';
+        
+        // Criar contadores para todas as 29 etapas
+        for (let i = 1; i <= 29; i++) {
+            const count = this.stageCountData[i] || 0;
             
-            stageCountContainer.innerHTML = html;
+            const stageItem = document.createElement('div');
+            stageItem.className = 'stage-count-item';
+            stageItem.innerHTML = `
+                <span class="stage-number">Etapa ${i}</span>
+                <span class="stage-count">${count}</span>
+            `;
+            
+            container.appendChild(stageItem);
         }
     }
 
@@ -403,6 +463,60 @@ export class AdminPanel {
         } catch (error) {
             console.error('❌ Erro ao retroceder todos os leads:', error);
             this.showNotification('Erro ao retroceder leads: ' + error.message, 'error');
+        }
+    }
+
+    async advanceAllLeads() {
+        if (this.filteredLeads.length === 0) {
+            alert('Nenhum lead selecionado para avançar');
+            return;
+        }
+        
+        const confirmation = confirm(`Tem certeza que deseja avançar TODOS os ${this.filteredLeads.length} leads para a próxima etapa?`);
+        if (!confirmation) return;
+        
+        console.log(`📈 Avançando ${this.filteredLeads.length} leads...`);
+        
+        try {
+            for (const lead of this.filteredLeads) {
+                const nextStage = Math.min(lead.etapa_atual + 1, 29);
+                await this.dbService.updateLead(lead.id, { etapa_atual: nextStage });
+                console.log(`✅ Lead ${lead.nome_completo} avançado para etapa ${nextStage}`);
+            }
+            
+            alert(`✅ ${this.filteredLeads.length} leads avançados com sucesso!`);
+            await this.loadLeadsFromSupabase();
+            
+        } catch (error) {
+            console.error('❌ Erro ao avançar leads:', error);
+            alert('Erro ao avançar leads: ' + error.message);
+        }
+    }
+
+    async regressAllLeads() {
+        if (this.filteredLeads.length === 0) {
+            alert('Nenhum lead selecionado para retroceder');
+            return;
+        }
+        
+        const confirmation = confirm(`Tem certeza que deseja retroceder TODOS os ${this.filteredLeads.length} leads para a etapa anterior?`);
+        if (!confirmation) return;
+        
+        console.log(`📉 Retrocedendo ${this.filteredLeads.length} leads...`);
+        
+        try {
+            for (const lead of this.filteredLeads) {
+                const prevStage = Math.max(lead.etapa_atual - 1, 1);
+                await this.dbService.updateLead(lead.id, { etapa_atual: prevStage });
+                console.log(`✅ Lead ${lead.nome_completo} retrocedido para etapa ${prevStage}`);
+            }
+            
+            alert(`✅ ${this.filteredLeads.length} leads retrocedidos com sucesso!`);
+            await this.loadLeadsFromSupabase();
+            
+        } catch (error) {
+            console.error('❌ Erro ao retroceder leads:', error);
+            alert('Erro ao retroceder leads: ' + error.message);
         }
     }
 
@@ -808,6 +922,11 @@ export class AdminPanel {
         }
     }
 
+    formatCPF(cpf) {
+        const cleanCPF = cpf.replace(/[^\d]/g, '');
+        return cleanCPF.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+    }
+
     previewBulkData() {
         const textarea = document.getElementById('bulkDataTextarea');
         const previewSection = document.getElementById('bulkPreviewSection');
@@ -827,16 +946,18 @@ export class AdminPanel {
         const lines = data.split('\n').filter(line => line.trim());
         const processedData = [];
         
+        console.log('📊 Processando', lines.length, 'linhas para preview');
+        
         lines.forEach((line, index) => {
             const columns = line.split('\t');
-            if (columns.length >= 6) {
+            if (columns.length >= 14) { // 14 colunas conforme especificado
                 processedData.push({
                     nome: columns[0]?.trim() || '',
                     email: columns[1]?.trim() || '',
                     telefone: columns[2]?.trim() || '',
                     cpf: columns[3]?.trim() || '',
                     produto: columns[4]?.trim() || '',
-                    valor: parseFloat(columns[5]?.trim() || '0'),
+                    valor: parseFloat(columns[5]) || 67.90,
                     endereco: columns[6]?.trim() || '',
                     numero: columns[7]?.trim() || '',
                     complemento: columns[8]?.trim() || '',
@@ -854,42 +975,64 @@ export class AdminPanel {
             return;
         }
         
-        // Gerar preview
-        let tableHTML = `
-            <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem;">
-                <thead>
-                    <tr style="background: #1e4a6b; color: white;">
-                        <th style="padding: 8px; border: 1px solid #ddd;">Nome</th>
-                        <th style="padding: 8px; border: 1px solid #ddd;">Email</th>
-                        <th style="padding: 8px; border: 1px solid #ddd;">CPF</th>
-                        <th style="padding: 8px; border: 1px solid #ddd;">Produto</th>
-                        <th style="padding: 8px; border: 1px solid #ddd;">Valor</th>
-                        <th style="padding: 8px; border: 1px solid #ddd;">Endereço</th>
+        // Criar tabela de preview
+        const table = document.createElement('table');
+        table.className = 'bulk-import-table';
+        table.innerHTML = `
+            <thead>
+                <tr>
+                    <th>Nome</th>
+                    <th>Email</th>
+                    <th>Telefone</th>
+                    <th>CPF</th>
+                    <th>Produto</th>
+                    <th>Valor</th>
+                    <th>Endereço</th>
+                    <th>Número</th>
+                    <th>Complemento</th>
+                    <th>Bairro</th>
+                    <th>CEP</th>
+                    <th>Cidade</th>
+                    <th>Estado</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${processedData.map(line => `
+                    <tr>
+                        <td>${line.nome}</td>
+                        <td>${line.email}</td>
+                        <td>${line.telefone}</td>
+                        <td>${line.cpf}</td>
+                        <td>${line.produto}</td>
+                        <td>R$ ${line.valor.toFixed(2)}</td>
+                        <td>${line.endereco}</td>
+                        <td>${line.numero}</td>
+                        <td>${line.complemento}</td>
+                        <td>${line.bairro}</td>
+                        <td>${line.cep}</td>
+                        <td>${line.cidade}</td>
+                        <td>${line.estado}</td>
                     </tr>
-                </thead>
-                <tbody>
+                `).join('')}
+            </tbody>
         `;
         
-        processedData.forEach(item => {
-            const enderecoCompleto = this.buildCompleteAddress(item);
-            tableHTML += `
-                <tr>
-                    <td style="padding: 6px; border: 1px solid #ddd;">${item.nome}</td>
-                    <td style="padding: 6px; border: 1px solid #ddd;">${item.email}</td>
-                    <td style="padding: 6px; border: 1px solid #ddd;">${CPFValidator.formatCPF(item.cpf)}</td>
-                    <td style="padding: 6px; border: 1px solid #ddd;">${item.produto}</td>
-                    <td style="padding: 6px; border: 1px solid #ddd;">R$ ${item.valor.toFixed(2)}</td>
-                    <td style="padding: 6px; border: 1px solid #ddd;">${enderecoCompleto}</td>
-                </tr>
-            `;
-        });
-        
-        tableHTML += '</tbody></table>';
-        
-        previewContainer.innerHTML = tableHTML;
-        previewSummary.textContent = `${processedData.length} leads prontos para importação`;
+        previewContainer.innerHTML = '';
+        previewContainer.appendChild(table);
         previewSection.style.display = 'block';
-        confirmButton.style.display = 'block';
+        
+        // Mostrar resumo
+        const summary = document.getElementById('previewSummary');
+        if (summary) {
+            summary.textContent = `${processedData.length} leads válidos encontrados para importação`;
+        }
+        
+        // Mostrar botão de confirmação
+        const confirmButton2 = document.getElementById('confirmBulkImportButton');
+        if (confirmButton2) {
+            confirmButton2.style.display = 'block';
+            confirmButton2.onclick = () => this.confirmBulkImport(processedData);
+        }
         
         // Salvar dados processados para importação
         this.bulkDataToImport = processedData;
@@ -918,55 +1061,67 @@ export class AdminPanel {
         this.bulkDataToImport = null;
     }
 
-    async confirmBulkImport() {
-        if (!this.bulkDataToImport || this.bulkDataToImport.length === 0) {
+    async confirmBulkImport(validLines) {
+        if (!validLines || validLines.length === 0) {
             this.showNotification('Nenhum dado para importar', 'error');
             return;
         }
 
-        if (!confirm(`Confirma a importação de ${this.bulkDataToImport.length} leads para o Supabase?`)) return;
+        if (!confirm(`Confirma a importação de ${validLines.length} leads para o Supabase?`)) return;
 
         try {
-            console.log(`📥 Importando ${this.bulkDataToImport.length} leads em massa...`);
+            console.log(`📥 Importando ${validLines.length} leads em massa...`);
             
-            let importedCount = 0;
+            let successCount = 0;
             let errorCount = 0;
             
-            for (const item of this.bulkDataToImport) {
+            for (const line of validLines) {
+                // Montar endereço completo
+                const enderecoCompleto = [
+                    line.endereco,
+                    line.numero,
+                    line.complemento,
+                    line.bairro,
+                    line.cidade,
+                    line.estado,
+                    line.cep
+                ].filter(part => part && part.trim()).join(', ');
+                
                 const leadData = {
-                    nome_completo: item.nome,
-                    cpf: item.cpf.replace(/[^\d]/g, ''),
-                    email: item.email,
-                    telefone: item.telefone,
-                    endereco: this.buildCompleteAddress(item),
-                    produtos: [{
-                        nome: item.produto || 'Kit 12 caixas organizadoras + brinde',
-                        preco: item.valor
-                    }],
-                    valor_total: item.valor,
+                    nome_completo: line.nome,
+                    cpf: line.cpf.replace(/[^\d]/g, ''),
+                    email: line.email,
+                    telefone: line.telefone,
+                    endereco: enderecoCompleto,
+                    produtos: [{ nome: line.produto, preco: line.valor }],
+                    valor_total: line.valor,
                     meio_pagamento: 'PIX',
-                    origem: 'direto',
+                    origem: 'painel',
                     etapa_atual: 1,
-                    status_pagamento: 'pendente',
-                    order_bumps: [],
-                    data_compra: new Date().toISOString()
+                    status_pagamento: 'pendente'
                 };
                 
-                const result = await this.dbService.createLead(leadData);
-                
-                if (result.success) {
-                    importedCount++;
-                } else {
+                try {
+                    const result = await this.dbService.createLead(leadData);
+                    if (result.success) {
+                        successCount++;
+                        console.log(`✅ Lead importado: ${line.nome}`);
+                    } else {
+                        errorCount++;
+                        console.error(`❌ Erro ao importar lead: ${line.nome}`, result.error);
+                    }
+                } catch (error) {
                     errorCount++;
-                    console.error('❌ Erro ao importar lead:', item.nome, result.error);
+                    console.error(`❌ Erro ao importar lead: ${line.nome}`, error);
                 }
             }
             
-            await this.loadLeadsFromSupabase();
-            this.clearBulkData();
-            this.showView('leadsView');
+            alert(`Importação concluída!\n✅ Sucessos: ${successCount}\n❌ Erros: ${errorCount}`);
             
-            this.showNotification(`Importação concluída: ${importedCount} leads importados, ${errorCount} erros`, 'success');
+            if (successCount > 0) {
+                await this.loadLeadsFromSupabase();
+                this.showView('leadsView');
+            }
             
         } catch (error) {
             console.error('❌ Erro na importação em massa:', error);
@@ -1254,54 +1409,134 @@ export class AdminPanel {
         }, 4000);
     }
 
-    applyFilters() {
-        console.log('🔍 Aplicando filtros...');
-        
+    async applyFilters() {
         const searchInput = document.getElementById('searchInput');
-        const dateFilter = document.getElementById('dateFilter');
+        const dateFilterStart = document.getElementById('dateFilter');
         const dateFilterEnd = document.getElementById('dateFilterEnd');
-        const stageFilter = document.getElementById('stageFilter');
+        const stageFilter = document.getElementById('stageFilter')?.value || 'all';
         
-        const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
-        const dateValue = dateFilter ? dateFilter.value : '';
-        const dateEndValue = dateFilterEnd ? dateFilterEnd.value : '';
-        const stageValue = stageFilter ? stageFilter.value : 'all';
+        const searchTerm = searchInput?.value || '';
+        const startDate = dateFilterStart?.value || '';
+        const endDate = dateFilterEnd?.value || '';
         
-        this.filteredLeads = this.leads.filter(lead => {
+        console.log('🔍 Aplicando filtros:', { searchTerm, startDate, endDate, stageFilter });
+        
+        try {
+            let filteredData = [...this.leads];
+            
             // Filtro de busca
             if (searchTerm) {
-                const nameMatch = (lead.nome_completo || '').toLowerCase().includes(searchTerm);
-                const cpfMatch = (lead.cpf || '').replace(/[^\d]/g, '').includes(searchTerm.replace(/[^\d]/g, ''));
-                if (!nameMatch && !cpfMatch) return false;
+                const cleanSearchTerm = searchTerm.replace(/[^\d]/g, '');
+                
+                if (/^\d+$/.test(cleanSearchTerm) && cleanSearchTerm.length >= 3) {
+                    // Busca por CPF
+                    const searchResult = await this.dbService.searchLeads(cleanSearchTerm);
+                    if (searchResult.success) {
+                        filteredData = searchResult.data;
+                    }
+                } else {
+                    // Busca por nome
+                    const searchResult = await this.dbService.searchLeads(searchTerm);
+                    if (searchResult.success) {
+                        filteredData = searchResult.data;
+                    }
+                }
             }
             
             // Filtro de data
-            if (dateValue) {
-                const leadDate = new Date(lead.created_at);
-                const filterDate = new Date(dateValue);
+            if (startDate) {
+                const startDateTime = new Date(startDate + 'T00:00:00').toISOString();
+                let endDateTime = endDate ? new Date(endDate + 'T23:59:59').toISOString() : null;
                 
-                if (dateEndValue) {
-                    // Filtro de intervalo de datas
-                    const filterEndDate = new Date(dateEndValue);
-                    if (leadDate < filterDate || leadDate > filterEndDate) return false;
-                } else {
-                    // Filtro de data única
-                    if (leadDate.toDateString() !== filterDate.toDateString()) return false;
+                if (!endDateTime) {
+                    // Se não há data fim, usar apenas o dia selecionado
+                    endDateTime = new Date(startDate + 'T23:59:59').toISOString();
+                }
+                
+                const dateResult = await this.dbService.getLeadsByDateRange(startDateTime, endDateTime);
+                if (dateResult.success) {
+                    // Intersecção com resultados anteriores
+                    const dateLeadIds = new Set(dateResult.data.map(lead => lead.id));
+                    filteredData = filteredData.filter(lead => dateLeadIds.has(lead.id));
                 }
             }
             
             // Filtro de etapa
-            if (stageValue !== 'all') {
-                if ((lead.etapa_atual || 1).toString() !== stageValue) return false;
+            if (stageFilter !== 'all') {
+                const targetStage = parseInt(stageFilter);
+                filteredData = filteredData.filter(lead => lead.etapa_atual === targetStage);
             }
             
-            return true;
-        });
-
-        this.currentPage = 1;
+            this.filteredLeads = filteredData;
+            
+        } catch (error) {
+            console.error('❌ Erro ao aplicar filtros:', error);
+            this.filteredLeads = this.leads;
+        }
+        
         this.renderLeadsTable();
         this.updateLeadsCount();
-        this.showNotification(`Filtros aplicados: ${this.filteredLeads.length} leads encontrados`, 'info');
+        
+        console.log(`🔍 Filtros aplicados: ${this.filteredLeads.length} leads encontrados`);
+    }
+
+    async advanceLead(leadId) {
+        console.log(`⏭️ Avançando lead: ${leadId}`);
+        
+        try {
+            const lead = this.leads.find(l => l.id === leadId);
+            if (lead) {
+                const nextStage = Math.min(lead.etapa_atual + 1, 29);
+                await this.dbService.updateLead(leadId, { etapa_atual: nextStage });
+                console.log(`✅ Lead avançado para etapa ${nextStage}`);
+                await this.loadLeadsFromSupabase();
+            }
+        } catch (error) {
+            console.error('❌ Erro ao avançar lead:', error);
+            alert('Erro ao avançar lead: ' + error.message);
+        }
+    }
+
+    async regressLead(leadId) {
+        console.log(`⏮️ Retrocedendo lead: ${leadId}`);
+        
+        try {
+            const lead = this.leads.find(l => l.id === leadId);
+            if (lead) {
+                const prevStage = Math.max(lead.etapa_atual - 1, 1);
+                await this.dbService.updateLead(leadId, { etapa_atual: prevStage });
+                console.log(`✅ Lead retrocedido para etapa ${prevStage}`);
+                await this.loadLeadsFromSupabase();
+            }
+        } catch (error) {
+            console.error('❌ Erro ao retroceder lead:', error);
+            alert('Erro ao retroceder lead: ' + error.message);
+        }
+    }
+
+    populateStageFilter() {
+        const stageFilter = document.getElementById('stageFilter');
+        if (!stageFilter) return;
+        
+        // Limpar opções existentes (exceto "Todas")
+        const allOption = stageFilter.querySelector('option[value="all"]');
+        stageFilter.innerHTML = '';
+        if (allOption) {
+            stageFilter.appendChild(allOption);
+        } else {
+            const option = document.createElement('option');
+            option.value = 'all';
+            option.textContent = 'Todas';
+            stageFilter.appendChild(option);
+        }
+        
+        // Adicionar todas as 29 etapas
+        for (let i = 1; i <= 29; i++) {
+            const option = document.createElement('option');
+            option.value = i.toString();
+            option.textContent = `Etapa ${i}`;
+            stageFilter.appendChild(option);
+        }
     }
 }
 

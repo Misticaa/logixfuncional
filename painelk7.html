@@ -725,32 +725,7 @@
                                 <label for="stageFilter">Etapa:</label>
                                 <select id="stageFilter">
                                     <option value="all">Todas</option>
-                                    <option value="1">Etapa 1</option>
-                                    <option value="2">Etapa 2</option>
-                                    <option value="3">Etapa 3</option>
-                                    <option value="4">Etapa 4</option>
-                                    <option value="5">Etapa 5</option>
-                                    <option value="6">Etapa 6</option>
-                                    <option value="7">Etapa 7</option>
-                                    <option value="8">Etapa 8</option>
-                                    <option value="9">Etapa 9</option>
-                                    <option value="10">Etapa 10</option>
-                                    <option value="11">Etapa 11</option>
-                                    <option value="12">Etapa 12</option>
-                                    <option value="13">Etapa 13</option>
-                                    <option value="14">Etapa 14</option>
-                                    <option value="15">Etapa 15</option>
-                                    <option value="16">Etapa 16</option>
-                                    <option value="17">Etapa 17</option>
-                                    <option value="18">Etapa 18</option>
-                                    <option value="19">Etapa 19</option>
-                                    <option value="20">Etapa 20</option>
-                                    <option value="21">Etapa 21</option>
-                                    <option value="22">Etapa 22</option>
-                                    <option value="23">Etapa 23</option>
-                                    <option value="24">Etapa 24</option>
-                                    <option value="25">Etapa 25</option>
-                                    <option value="26">Etapa 26</option>
+                                    <!-- Etapas serão populadas dinamicamente -->
                                 </select>
                             </div>
                         </div>
@@ -909,7 +884,7 @@
                             <label for="bulkDataTextarea">Dados para Importar:</label>
                             <textarea 
                                 id="bulkDataTextarea" 
-                                placeholder="João Silva Santos	joao@email.com	11999999999	12345678901	Kit 12 caixas organizadoras	67.90	Rua das Flores	123	Apto 45	Centro	01234-567	São Paulo	SP	BR"
+                                placeholder="João Silva Santos	joao@email.com	11999999999	12345678901	Kit 12 caixas organizadoras	67.90	Rua das Flores	123	Apto 45	Centro	01234-567	São Paulo	SP	BR&#10;Maria Costa Lima	maria@email.com	11888888888	98765432100	Kit 12 caixas organizadoras	67.90	Av. Paulista	456	Casa	Bela Vista	01310-100	São Paulo	SP	BR"
                                 style="
                                     width: 100%;
                                     min-height: 200px;
@@ -990,11 +965,13 @@
             padding: 8px 12px;
             text-align: center;
             transition: all 0.3s ease;
+            cursor: pointer;
         }
         
         .stage-count-item:hover {
             background: #e3f2fd;
             border-color: #1e4a6b;
+            transform: scale(1.02);
         }
         
         .stage-number {
@@ -1012,8 +989,46 @@
             margin-top: 2px;
         }
         
-        .filters-grid {
-            grid-template-columns: 2fr 1fr 1fr 1fr !important;
+        .bulk-textarea {
+            min-height: 200px;
+            font-family: monospace;
+            font-size: 13px;
+            line-height: 1.4;
+            resize: vertical;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            padding: 15px;
+            width: 100%;
+        }
+        
+        .bulk-textarea:focus {
+            outline: none;
+            border-color: #1e4a6b;
+            box-shadow: 0 0 0 3px rgba(30, 74, 107, 0.1);
+        }
+        
+        .bulk-import-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.8rem;
+        }
+        
+        .bulk-import-table th {
+            background: #1e4a6b;
+            color: white;
+            padding: 10px 8px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.75rem;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        .bulk-import-table td {
+            padding: 8px;
+            border-bottom: 1px solid #e1e5e9;
+            font-size: 0.8rem;
         }
     </style>
     <script type="module" src="src/pages/admin-panel.jsx"></script>
