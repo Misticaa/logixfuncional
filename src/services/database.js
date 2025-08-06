@@ -19,18 +19,25 @@ export class DatabaseService {
 
     initializeSupabase() {
         try {
-            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-            const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+            // Tentar múltiplas fontes para as variáveis do Supabase
+            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 
+                               window.VITE_SUPABASE_URL || 
+                               'https://coegmiyojkubtksfhwky.supabase.co';
+            
+            const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 
+                               window.VITE_SUPABASE_ANON_KEY || 
+                               'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNvZWdtaXlvamt1YnRrc2Zod2t5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQ5NzI5NzQsImV4cCI6MjA1MDU0ODk3NH0.Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8';
             
             if (!supabaseUrl || !supabaseKey) {
-                console.error('❌ Variáveis do Supabase não encontradas!');
-                console.error('VITE_SUPABASE_URL:', supabaseUrl ? 'CONFIGURADA' : 'AUSENTE');
-                console.error('VITE_SUPABASE_ANON_KEY:', supabaseKey ? 'CONFIGURADA' : 'AUSENTE');
+                console.error('❌ Variáveis do Supabase não encontradas em nenhuma fonte!');
                 return null;
             }
             
             const client = createClient(supabaseUrl, supabaseKey);
-            console.log('✅ Cliente Supabase inicializado com sucesso');
+            console.log('✅ Cliente Supabase inicializado:', {
+                url: supabaseUrl.substring(0, 30) + '...',
+                keyConfigured: !!supabaseKey
+            });
             return client;
         } catch (error) {
             console.error('❌ Erro ao inicializar Supabase:', error);
@@ -368,6 +375,69 @@ export class DatabaseService {
             
         } catch (error) {
             console.error('❌ Erro na contagem por etapa:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    async getLeadsByDateRange(startDate, endDate = null) {
+        if (!this.supabase) {
+            return { success: false, error: 'Supabase não configurado' };
+        }
+
+        try {
+            let query = this.supabase
+                .from('leads')
+                .select('*')
+                .gte('created_at', startDate);
+            
+            if (endDate) {
+                query = query.lte('created_at', endDate);
+            }
+            
+            const { data, error } = await query.order('created_at', { ascending: false });
+            
+            if (error) {
+                console.error('❌ Erro ao buscar leads por data:', error);
+                return { success: false, error: error.message };
+            }
+            
+            return { success: true, data: data };
+            
+        } catch (error) {
+            console.error('❌ Erro na busca por data:', error);
+            return { success: false, error: error.message };
+        }
+    }
+
+    async searchLeads(searchTerm) {
+        if (!this.supabase) {
+            return { success: false, error: 'Supabase não configurado' };
+        }
+
+        try {
+            const cleanCPF = searchTerm.replace(/[^\d]/g, '');
+            
+            let query = this.supabase.from('leads').select('*');
+            
+            // Se for número, buscar por CPF
+            if (/^\d+$/.test(cleanCPF) && cleanCPF.length >= 3) {
+                query = query.eq('cpf', cleanCPF);
+            } else {
+                // Se for texto, buscar por nome
+                query = query.ilike('nome_completo', `%${searchTerm}%`);
+            }
+            
+            const { data, error } = await query.order('created_at', { ascending: false });
+            
+            if (error) {
+                console.error('❌ Erro na busca:', error);
+                return { success: false, error: error.message };
+            }
+            
+            return { success: true, data: data };
+            
+        } catch (error) {
+            console.error('❌ Erro na busca:', error);
             return { success: false, error: error.message };
         }
     }
