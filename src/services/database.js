@@ -83,43 +83,17 @@ export class DatabaseService {
     }
 
     getSupabaseUrl() {
-        // Múltiplas fontes de configuração com validação
-        const sources = [
-            import.meta.env.VITE_SUPABASE_URL,
-            window.VITE_SUPABASE_URL,
-            localStorage.getItem('supabase_url'),
-            'https://coegmiyojkubtksfhwky.supabase.co'
-        ];
-        
-        for (const url of sources) {
-            if (url && url.startsWith('https://') && url.includes('.supabase.co')) {
-                console.log('🔗 URL Supabase encontrada:', url.substring(0, 30) + '...');
-                return url;
-            }
-        }
-        
-        console.error('❌ Nenhuma URL válida do Supabase encontrada');
-        return null;
+        // Conexão direta com Supabase - sem dependências externas
+        const supabaseUrl = 'https://coegmiyojkubtksfhwky.supabase.co';
+        console.log('🔗 URL Supabase configurada diretamente:', supabaseUrl);
+        return supabaseUrl;
     }
 
     getSupabaseKey() {
-        // Múltiplas fontes de configuração com validação
-        const sources = [
-            import.meta.env.VITE_SUPABASE_ANON_KEY,
-            window.VITE_SUPABASE_ANON_KEY,
-            localStorage.getItem('supabase_key'),
-            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNvZWdtaXlvamt1YnRrc2Zod2t5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQ5NzI5NzQsImV4cCI6MjA1MDU0ODk3NH0.Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8'
-        ];
-        
-        for (const key of sources) {
-            if (key && key.startsWith('eyJ') && key.length > 100) {
-                console.log('🔑 Chave Supabase encontrada');
-                return key;
-            }
-        }
-        
-        console.error('❌ Nenhuma chave válida do Supabase encontrada');
-        return null;
+        // Chave pública Supabase configurada diretamente - sem dependências externas
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNvZWdtaXlvamt1YnRrc2Zod2t5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQyNjEyNjIsImV4cCI6MjA2OTgzNzI2Mn0.cLn3hKWDuf8Vjb8GtLAl0W30nTIc7GhvRJbSnVsegFY';
+        console.log('🔑 Chave Supabase configurada diretamente');
+        return supabaseKey;
     }
 
     async getLeadByCPF(cpf) {
