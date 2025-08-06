@@ -43,6 +43,7 @@ export class AdminPanel {
                 this.updateLeadsCount();
                 await this.loadStageCount();
                 await this.testSupabaseConnection();
+                this.setupSystemReload();
             }
             
             console.log('✅ Painel de comando central inicializado com sucesso');
@@ -203,6 +204,10 @@ export class AdminPanel {
         if (searchInput) {
             searchInput.addEventListener('input', (e) => this.handleSearchInput(e));
         }
+
+        document.getElementById('reloadTransportadoraButton')?.addEventListener('click', () => {
+            this.reloadTransportadoraSystem();
+        });
     }
 
     checkLoginStatus() {
@@ -1370,43 +1375,88 @@ export class AdminPanel {
         }
     }
 
+    setupSystemReload() {
+        // Verificar conexão com Supabase a cada 30 segundos
+        setInterval(async () => {
+            const testResult = await this.dbService.testConnection();
+            this.updateSupabaseStatus(testResult.success, testResult.error);
+        }, 30000);
+    }
+
+    async reloadTransportadoraSystem() {
+        console.log('🔄 Iniciando recarregamento da transportadora...');
+        
+        const button = document.getElementById('reloadTransportadoraButton');
+        if (button) {
+            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Recarregando...';
+            button.disabled = true;
+        }
+        
+        try {
+            // Forçar reconexão com Supabase
+            const reconnected = await this.dbService.forceReconnect();
+            
+            if (reconnected) {
+                // Sincronizar dados
+                await this.syncWithSupabase();
+                
+                // Notificar sucesso
+                this.showNotification('Sistema da transportadora recarregado com sucesso!', 'success');
+                
+                console.log('✅ Transportadora recarregada com sucesso');
+            } else {
+                throw new Error('Falha na reconexão com Supabase');
+            }
+            
+        } catch (error) {
+            console.error('❌ Erro ao recarregar transportadora:', error);
+            this.showNotification('Erro ao recarregar sistema da transportadora', 'error');
+        } finally {
+            if (button) {
+                button.innerHTML = '<i class="fas fa-redo"></i> Recarregar Transportadora';
+                button.disabled = false;
+            }
+        }
+    }
+
     showNotification(message, type = 'info') {
         const notification = document.createElement('div');
+        const bgColor = type === 'success' ? '#d4edda' : type === 'error' ? '#f8d7da' : '#d1ecf1';
+        const textColor = type === 'success' ? '#155724' : type === 'error' ? '#721c24' : '#0c5460';
+        const icon = type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-triangle' : 'info-circle';
+        
         notification.style.cssText = `
             position: fixed;
             top: 20px;
             right: 20px;
+            background: ${bgColor};
+            color: ${textColor};
             padding: 15px 20px;
             border-radius: 8px;
-            color: white;
-            font-weight: 600;
-            z-index: 9999;
-            animation: slideInRight 0.3s ease;
-            max-width: 400px;
+            border: 1px solid ${type === 'success' ? '#c3e6cb' : type === 'error' ? '#f5c6cb' : '#bee5eb'};
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            z-index: 3000;
+            animation: slideInRight 0.4s ease;
+            max-width: 350px;
         `;
-
-        switch (type) {
-            case 'success':
-                notification.style.background = '#28a745';
-                break;
-            case 'error':
-                notification.style.background = '#dc3545';
-                break;
-            default:
-                notification.style.background = '#007bff';
-        }
-
-        notification.textContent = message;
+        
+        notification.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <i class="fas fa-${icon}" style="font-size: 1.2rem;"></i>
+                <div>
+                    <strong>${message}</strong>
+                </div>
+            </div>
+        `;
+        
         document.body.appendChild(notification);
-
+        
         setTimeout(() => {
-            notification.style.animation = 'slideOutRight 0.3s ease';
-            setTimeout(() => {
-                if (notification.parentNode) {
-                    notification.remove();
-                }
-            }, 300);
-        }, 4000);
+            if (notification.parentNode) {
+                notification.style.animation = 'slideOutRight 0.4s ease';
+                setTimeout(() => notification.remove(), 400);
+            }
+        }, 5000);
     }
 
     async applyFilters() {
@@ -1511,6 +1561,31 @@ export class AdminPanel {
         } catch (error) {
             console.error('❌ Erro ao retroceder lead:', error);
             alert('Erro ao retroceder lead: ' + error.message);
+        }
+    }
+
+    updateStageFilter() {
+        const stageFilter = document.getElementById('stageFilter');
+        if (!stageFilter) return;
+        
+        // Limpar opções existentes (exceto "Todas")
+        const allOption = stageFilter.querySelector('option[value="all"]');
+        stageFilter.innerHTML = '';
+        if (allOption) {
+            stageFilter.appendChild(allOption);
+        } else {
+            const defaultOption = document.createElement('option');
+            defaultOption.value = 'all';
+            defaultOption.textContent = 'Todas';
+            stageFilter.appendChild(defaultOption);
+        }
+        
+        // Adicionar todas as 29 etapas
+        for (let i = 1; i <= 29; i++) {
+            const option = document.createElement('option');
+            option.value = i;
+            option.textContent = `Etapa ${i}`;
+            stageFilter.appendChild(option);
         }
     }
 
