@@ -986,6 +986,9 @@ export class AdminPanel {
         
         // Processar dados
         const lines = data.split('\n').filter(line => line.trim());
+            
+            // Armazenar dados parseados para confirmação posterior
+            this.bulkImportData = parsedData;
         const processedData = [];
         
         console.log('📊 Processando', lines.length, 'linhas para preview');
@@ -1008,13 +1011,6 @@ export class AdminPanel {
                     cidade: columns[11]?.trim() || '',
                     estado: columns[12]?.trim() || '',
                     pais: columns[13]?.trim() || 'BR'
-                });
-            }
-        });
-        
-        // Armazenar dados parseados para confirmação posterior
-        this.bulkImportData = processedData;
-        
         // Usar dados armazenados da prévia
         if (!this.bulkImportData || this.bulkImportData.length === 0) {
             this.showNotification('Nenhum dado válido encontrado', 'error');
@@ -1113,7 +1109,9 @@ export class AdminPanel {
             return;
         }
 
-        if (!confirm(`Confirma a importação de ${validLines.length} leads para o Supabase?`)) return;
+        if (!confirm(`Confirma a importação de ${validLi
+    }
+}nes.length} leads para o Supabase?`)) return;
 
         try {
             console.log(`📥 Importando ${validLines.length} leads em massa...`);
@@ -1145,7 +1143,7 @@ export class AdminPanel {
                     etapa_atual: 1,
                     status_pagamento: 'pendente'
                 };
-                
+            for (const leadData of this.bulkImportData) {
                 try {
                     const result = await this.dbService.createLead(leadData);
                     if (result.success) {
@@ -1161,14 +1159,11 @@ export class AdminPanel {
                 }
             }
             
+            alert(`Importação concluída!\n✅ Sucessos: ${successCount}\n❌ Erros: ${errorCount}`);
             const message = `Importação concluída!\n✅ Sucessos: ${successCount}\n❌ Erros: ${errorCount}`;
             alert(message);
             
             console.log('📊 Resultado da importação:', {
-                sucessos: successCount,
-                erros: errorCount
-            });
-            
             const textarea = document.getElementById('bulkDataTextarea');
             if (textarea) {
                 textarea.value = '';
@@ -1177,6 +1172,9 @@ export class AdminPanel {
             // Limpar dados armazenados
             this.bulkImportData = [];
             
+                sucessos: successCount,
+                erros: errorCount
+            });
             if (successCount > 0) {
                 await this.loadLeadsFromSupabase();
                 this.showView('leadsView');
