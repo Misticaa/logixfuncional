@@ -1036,5 +1036,52 @@
         }
     </style>
     <script type="module" src="src/pages/admin-panel.jsx"></script>
+    
+    <script>
+        // Login functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const loginForm = document.getElementById('loginForm');
+            const loginScreen = document.getElementById('loginScreen');
+            const adminPanel = document.getElementById('adminPanel');
+            
+            if (loginForm) {
+                loginForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    
+                    const username = document.getElementById('username').value;
+                    const password = document.getElementById('password').value;
+                    
+                    // Credenciais: admin / admin123
+                    if (username === 'admin' && password === 'admin123') {
+                        localStorage.setItem('admin_logged_in', 'true');
+                        
+                        if (loginScreen) loginScreen.style.display = 'none';
+                        if (adminPanel) adminPanel.style.display = 'block';
+                        
+                        console.log('✅ Login realizado com sucesso');
+                    } else {
+                        alert('Credenciais inválidas. Use: admin / admin123');
+                    }
+                });
+            }
+            
+            // Check if already logged in
+            const isLoggedIn = localStorage.getItem('admin_logged_in') === 'true';
+            if (isLoggedIn) {
+                if (loginScreen) loginScreen.style.display = 'none';
+                if (adminPanel) adminPanel.style.display = 'block';
+            }
+            
+            // Logout functionality
+            const logoutButton = document.getElementById('logoutButton');
+            if (logoutButton) {
+                logoutButton.addEventListener('click', function() {
+                    localStorage.removeItem('admin_logged_in');
+                    if (loginScreen) loginScreen.style.display = 'flex';
+                    if (adminPanel) adminPanel.style.display = 'none';
+                });
+            }
+        });
+    </script>
 </body>
 </html>
