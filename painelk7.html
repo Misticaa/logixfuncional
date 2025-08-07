@@ -614,17 +614,213 @@
     </div>
 
     <script type="module">
-        import { DatabaseService, CPFValidator } from './src/services/database.js';
+        // Classe DatabaseService integrada
+        class DatabaseService {
+            constructor() {
+                this.supabase = null;
+                this.connectionAttempts = 0;
+                this.maxRetries = 3;
+                console.log('🗄️ DatabaseService inicializado');
+                this.initializeWithRetry();
+            }
 
-        class SimpleAdminPanel {
+            async initializeWithRetry() {
+                while (this.connectionAttempts < this.maxRetries && !this.supabase) {
+                    this.connectionAttempts++;
+                    console.log(`🔄 Tentativa ${this.connectionAttempts}/${this.maxRetries} de conexão com Supabase`);
+                    
+                    this.supabase = this.initializeSupabase();
+                    
+                    if (this.supabase) {
+                        const testResult = await this.testConnection();
+                        if (testResult.success) {
+                            console.log('✅ Conexão com Supabase estabelecida com sucesso');
+                            break;
+                        } else {
+                            console.warn(`⚠️ Teste de conexão falhou na tentativa ${this.connectionAttempts}`);
+                            this.supabase = null;
+                        }
+                    }
+                    
+                    if (this.connectionAttempts < this.maxRetries) {
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                    }
+                }
+                
+                if (!this.supabase) {
+                    console.error('❌ Falha ao conectar com Supabase após todas as tentativas');
+                }
+            }
+
+            initializeSupabase() {
+                try {
+                    const supabaseUrl = 'https://coegmiyojkubtksfhwky.supabase.co';
+                    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNvZWdtaXlvamt1YnRrc2Zod2t5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQyNjEyNjIsImV4cCI6MjA2OTgzNzI2Mn0.cLn3hKWDuf8Vjb8GtLAl0W30nTIc7GhvRJbSnVsegFY';
+                    
+                    console.log('🔗 Configuração Supabase:', {
+                        url: supabaseUrl ? supabaseUrl.substring(0, 30) + '...' : 'NÃO ENCONTRADA',
+                        keyConfigured: !!supabaseKey,
+                        attempt: this.connectionAttempts
+                    });
+                    
+                    if (!supabaseUrl || !supabaseKey) {
+                        console.error('❌ Credenciais do Supabase não encontradas!');
+                        return null;
+                    }
+                    
+                    const client = window.supabase.createClient(supabaseUrl, supabaseKey);
+                    console.log('✅ Cliente Supabase criado');
+                    return client;
+                } catch (error) {
+                    console.error('❌ Erro ao inicializar Supabase:', error);
+                    return null;
+                }
+            }
+
+            async testConnection() {
+                try {
+                    if (!this.supabase) {
+                        console.error('❌ Cliente Supabase não inicializado');
+                        return { success: false, error: 'Cliente Supabase não inicializado' };
+                    }
+
+                    console.log('🔍 Testando conexão com Supabase...');
+                    
+                    const { data, error } = await this.supabase
+                        .from('leads')
+                        .select('id')
+                        .limit(1);
+                    
+                    if (error) {
+                        console.error('❌ Erro no teste de conexão:', error);
+                        return { success: false, error: error.message };
+                    }
+                    
+                    console.log('✅ Conexão com Supabase OK');
+                    return { success: true, message: 'Conexão estabelecida com sucesso' };
+                    
+                } catch (error) {
+                    console.error('❌ Erro crítico no teste de conexão:', error);
+                    return { success: false, error: error.message };
+                }
+            }
+
+            async getAllLeads() {
+                if (!this.supabase) {
+                    console.error('❌ Supabase não disponível');
+                    return { success: false, error: 'Supabase não configurado' };
+                }
+
+                try {
+                    console.log('📊 Buscando todos os leads no Supabase...');
+                    
+                    const { data, error } = await this.supabase
+                        .from('leads')
+                        .select('*')
+                        .order('created_at', { ascending: false });
+                    
+                    if (error) {
+                        console.error('❌ Erro ao buscar leads:', error);
+                        return { success: false, error: error.message };
+                    }
+                    
+                    console.log(`✅ ${data.length} leads encontrados no Supabase`);
+                    return { success: true, data: data };
+                    
+                } catch (error) {
+                    console.error('❌ Erro na busca dos leads:', error);
+                    return { success: false, error: error.message };
+                }
+            }
+
+            async createLead(leadData) {
+                if (!this.supabase) {
+                    console.error('❌ Supabase não disponível');
+                    return { success: false, error: 'Supabase não configurado' };
+                }
+
+                try {
+                    console.log('📝 Criando lead no Supabase:', leadData);
+                    
+                    const { data, error } = await this.supabase
+                        .from('leads')
+                        .upsert({
+                            nome_completo: leadData.nome_completo,
+                            cpf: leadData.cpf.replace(/[^\d]/g, ''),
+                            email: leadData.email,
+                            telefone: leadData.telefone,
+                            endereco: leadData.endereco,
+                            produtos: leadData.produtos || [],
+                            valor_total: leadData.valor_total,
+                            meio_pagamento: leadData.meio_pagamento || 'PIX',
+                            origem: leadData.origem || 'direto',
+                            etapa_atual: leadData.etapa_atual || 1,
+                            status_pagamento: leadData.status_pagamento || 'pendente',
+                            order_bumps: leadData.order_bumps || [],
+                            data_compra: leadData.data_compra || new Date().toISOString()
+                        }, { onConflict: 'cpf' })
+                        .select()
+                        .single();
+                    
+                    if (error) {
+                        console.error('❌ Erro ao criar lead no Supabase:', error);
+                        return { success: false, error: error.message };
+                    }
+                    
+                    console.log('✅ Lead criado/atualizado no Supabase:', data);
+                    return { success: true, data: data };
+                    
+                } catch (error) {
+                    console.error('❌ Erro na criação do lead:', error);
+                    return { success: false, error: error.message };
+                }
+            }
+        }
+
+        // Classe CPFValidator integrada
+        class CPFValidator {
+            static formatCPF(cpf) {
+                const cleanCPF = cpf.replace(/[^\d]/g, '');
+                if (cleanCPF.length <= 11) {
+                    return cleanCPF.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+                }
+                return cpf;
+            }
+
+            static applyCPFMask(input) {
+                let value = input.value.replace(/[^\d]/g, '');
+                
+                if (value.length > 11) {
+                    value = value.slice(0, 11);
+                }
+                
+                if (value.length > 9) {
+                    value = value.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+                } else if (value.length > 6) {
+                    value = value.replace(/(\d{3})(\d{3})(\d{3})/, '$1.$2.$3');
+                } else if (value.length > 3) {
+                    value = value.replace(/(\d{3})(\d{3})/, '$1.$2');
+                }
+                
+                input.value = value;
+                return value;
+            }
+        }
+
+        // Classe AdminPanel simplificada
+        class AdminPanel {
             constructor() {
                 this.dbService = new DatabaseService();
                 this.allLeads = [];
+                console.log('🚀 AdminPanel inicializado');
                 this.init();
             }
 
             async init() {
-                console.log('🚀 Inicializando painel administrativo simples');
+                console.log('🚀 Inicializando painel administrativo');
+                
+                // Aguardar carregamento do Supabase
+                await this.waitForSupabase();
                 
                 this.setupEventListeners();
                 await this.testSupabaseConnection();
@@ -632,51 +828,100 @@
                 this.updateStats();
             }
 
+            async waitForSupabase() {
+                // Aguardar até que o Supabase esteja disponível
+                let attempts = 0;
+                while (!window.supabase && attempts < 10) {
+                    console.log('⏳ Aguardando Supabase carregar...');
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    attempts++;
+                }
+                
+                if (!window.supabase) {
+                    console.error('❌ Supabase não carregou');
+                } else {
+                    console.log('✅ Supabase disponível');
+                }
+            }
+
             setupEventListeners() {
-                // Login
+                console.log('🔧 Configurando event listeners...');
+                
+                // Login form
                 const loginForm = document.getElementById('loginForm');
                 if (loginForm) {
-                    loginForm.addEventListener('submit', (e) => this.handleLogin(e));
+                    loginForm.addEventListener('submit', (e) => {
+                        console.log('📝 Login form submitted');
+                        this.handleLogin(e);
+                    });
+                    console.log('✅ Login form listener configurado');
+                } else {
+                    console.error('❌ Login form não encontrado');
                 }
 
-                // Logout
-                const logoutButton = document.getElementById('logoutButton');
-                if (logoutButton) {
-                    logoutButton.addEventListener('click', () => this.handleLogout());
-                }
+                // Outros listeners...
+                this.setupNavigationListeners();
+                this.setupActionListeners();
+                this.setupFormListeners();
+            }
 
-                // Navegação
+            setupNavigationListeners() {
                 const showLeadsView = document.getElementById('showLeadsView');
                 const showAddLeadView = document.getElementById('showAddLeadView');
+                const logoutButton = document.getElementById('logoutButton');
 
                 if (showLeadsView) {
-                    showLeadsView.addEventListener('click', () => this.showView('leadsView'));
+                    showLeadsView.addEventListener('click', () => {
+                        console.log('📊 Mostrando view de leads');
+                        this.showView('leadsView');
+                    });
                 }
 
                 if (showAddLeadView) {
-                    showAddLeadView.addEventListener('click', () => this.showView('addLeadView'));
+                    showAddLeadView.addEventListener('click', () => {
+                        console.log('➕ Mostrando view de adicionar lead');
+                        this.showView('addLeadView');
+                    });
                 }
 
-                // Refresh
+                if (logoutButton) {
+                    logoutButton.addEventListener('click', () => {
+                        console.log('🚪 Logout clicado');
+                        this.handleLogout();
+                    });
+                }
+            }
+
+            setupActionListeners() {
                 const refreshButton = document.getElementById('refreshButton');
-                if (refreshButton) {
-                    refreshButton.addEventListener('click', () => this.loadLeadsFromSupabase());
-                }
-
-                // Sync
                 const syncButton = document.getElementById('syncSupabaseButton');
+
+                if (refreshButton) {
+                    refreshButton.addEventListener('click', () => {
+                        console.log('🔄 Refresh clicado');
+                        this.loadLeadsFromSupabase();
+                    });
+                }
+
                 if (syncButton) {
-                    syncButton.addEventListener('click', () => this.syncWithSupabase());
+                    syncButton.addEventListener('click', () => {
+                        console.log('🔄 Sync clicado');
+                        this.syncWithSupabase();
+                    });
                 }
+            }
 
-                // Add lead form
+            setupFormListeners() {
                 const addLeadForm = document.getElementById('addLeadForm');
+                const addLeadCPF = document.getElementById('addLeadCPF');
+
                 if (addLeadForm) {
-                    addLeadForm.addEventListener('submit', (e) => this.handleAddLead(e));
+                    addLeadForm.addEventListener('submit', (e) => {
+                        console.log('📝 Add lead form submitted');
+                        this.handleAddLead(e);
+                    });
                 }
 
-                // CPF mask for add lead form
-                const addLeadCPF = document.getElementById('addLeadCPF');
                 if (addLeadCPF) {
                     addLeadCPF.addEventListener('input', (e) => {
                         CPFValidator.applyCPFMask(e.target);
@@ -686,16 +931,20 @@
 
             handleLogin(e) {
                 e.preventDefault();
+                console.log('🔐 Processando login...');
                 
                 const username = document.getElementById('username').value;
                 const password = document.getElementById('password').value;
 
+                console.log('👤 Tentativa de login:', { username, password: '***' });
+
                 // Credenciais simples
                 if (username === 'admin' && password === 'admin123') {
+                    console.log('✅ Login bem-sucedido');
                     document.getElementById('loginScreen').style.display = 'none';
                     document.getElementById('adminPanel').style.display = 'block';
-                    console.log('✅ Login realizado com sucesso');
                 } else {
+                    console.log('❌ Credenciais inválidas');
                     alert('Credenciais inválidas. Use: admin / admin123');
                 }
             }
@@ -845,6 +1094,7 @@
 
             async handleAddLead(e) {
                 e.preventDefault();
+                console.log('📝 Processando adição de lead...');
                 
                 const formData = new FormData(e.target);
                 const leadData = {
@@ -860,15 +1110,19 @@
                     status_pagamento: 'pendente'
                 };
 
+                console.log('📦 Dados do lead:', leadData);
+
                 try {
                     const result = await this.dbService.createLead(leadData);
                     
                     if (result.success) {
+                        console.log('✅ Lead adicionado com sucesso');
                         alert('Lead adicionado com sucesso!');
                         e.target.reset();
                         await this.loadLeadsFromSupabase();
                         this.showView('leadsView');
                     } else {
+                        console.error('❌ Erro ao adicionar lead:', result.error);
                         alert('Erro ao adicionar lead: ' + result.error);
                     }
                 } catch (error) {
@@ -878,10 +1132,26 @@
             }
         }
 
-        // Inicializar painel
+        // Aguardar carregamento do Supabase e inicializar
         document.addEventListener('DOMContentLoaded', () => {
-            window.adminPanel = new SimpleAdminPanel();
+            console.log('📄 DOM carregado, aguardando Supabase...');
+            
+            // Aguardar Supabase carregar
+            const checkSupabase = () => {
+                if (window.supabase) {
+                    console.log('✅ Supabase carregado, inicializando painel...');
+                    window.adminPanel = new AdminPanel();
+                } else {
+                    console.log('⏳ Aguardando Supabase...');
+                    setTimeout(checkSupabase, 100);
+                }
+            };
+            
+            checkSupabase();
         });
     </script>
+    
+    <!-- Carregar Supabase -->
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
 </body>
 </html>
