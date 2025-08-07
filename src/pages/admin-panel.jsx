@@ -9,7 +9,6 @@ export class AdminPanel {
         this.dbService = new DatabaseService();
         this.leads = [];
         this.filteredLeads = [];
-        this.bulkImportData = []; // Armazenar dados da importação em massa
         this.selectedLeads = new Set();
         this.currentPage = 1;
         this.leadsPerPage = 20;
@@ -986,9 +985,6 @@ export class AdminPanel {
         
         // Processar dados
         const lines = data.split('\n').filter(line => line.trim());
-            
-            // Armazenar dados parseados para confirmação posterior
-            this.bulkImportData = parsedData;
         const processedData = [];
         
         console.log('📊 Processando', lines.length, 'linhas para preview');
@@ -1011,8 +1007,14 @@ export class AdminPanel {
                     cidade: columns[11]?.trim() || '',
                     estado: columns[12]?.trim() || '',
                     pais: columns[13]?.trim() || 'BR'
-        // Usar dados armazenados da prévia
-        if (!this.bulkImportData || this.bulkImportData.length === 0) {
+                });
+            }
+        });
+        
+        // Armazenar dados parseados para confirmação posterior
+        this.bulkImportData = processedData;
+        
+        if (processedData.length === 0) {
             this.showNotification('Nenhum dado válido encontrado', 'error');
             return;
         }
@@ -1103,67 +1105,45 @@ export class AdminPanel {
         this.bulkDataToImport = null;
     }
 
-    async confirmBulkImport(validLines) {
-        if (!validLines || validLines.length === 0) {
-            this.showNotification('Nenhum dado para importar', 'error');
+    async confirmBulkImport() {
+        // Usar dados armazenados da prévia
+        if (!this.bulkImportData || this.bulkImportData.length === 0) {
+            this.showNotification('Nenhum dado válido encontrado', 'error');
             return;
         }
 
-        if (!confirm(`Confirma a importação de ${validLi
-    }
-}nes.length} leads para o Supabase?`)) return;
+        if (!confirm(`Confirma a importação de ${this.bulkImportData.length} leads para o Supabase?`)) return;
 
         try {
-            console.log(`📥 Importando ${validLines.length} leads em massa...`);
+            console.log(`📥 Importando ${this.bulkImportData.length} leads em massa...`);
             
             let successCount = 0;
             let errorCount = 0;
             
-            for (const line of validLines) {
-                // Montar endereço completo
-                const enderecoCompleto = [
-                    line.endereco,
-                    line.numero,
-                    line.complemento,
-                    line.bairro,
-                    line.cidade,
-                    line.estado,
-                    line.cep
-                ].filter(part => part && part.trim()).join(', ');
-                
-                const leadData = {
-                    nome_completo: line.nome,
-                    cpf: line.cpf.replace(/[^\d]/g, ''),
-                    email: line.email,
-                    telefone: line.telefone,
-                    endereco: enderecoCompleto,
-                    produtos: [{ nome: line.produto, preco: line.valor }],
-                    valor_total: line.valor,
-                    meio_pagamento: 'PIX',
-                    etapa_atual: 1,
-                    status_pagamento: 'pendente'
-                };
             for (const leadData of this.bulkImportData) {
                 try {
                     const result = await this.dbService.createLead(leadData);
                     if (result.success) {
                         successCount++;
-                        console.log(`✅ Lead importado: ${line.nome}`);
+                        console.log(`✅ Lead importado: ${leadData.nome_completo}`);
                     } else {
                         errorCount++;
-                        console.error(`❌ Erro ao importar lead: ${line.nome}`, result.error);
+                        console.error(`❌ Erro ao importar lead: ${leadData.nome_completo}`, result.error);
                     }
                 } catch (error) {
                     errorCount++;
-                    console.error(`❌ Erro ao importar lead: ${line.nome}`, error);
+                    console.error(`❌ Erro ao importar lead: ${leadData.nome_completo}`, error);
                 }
             }
             
-            alert(`Importação concluída!\n✅ Sucessos: ${successCount}\n❌ Erros: ${errorCount}`);
             const message = `Importação concluída!\n✅ Sucessos: ${successCount}\n❌ Erros: ${errorCount}`;
             alert(message);
             
             console.log('📊 Resultado da importação:', {
+                sucessos: successCount,
+                erros: errorCount
+            });
+            
             const textarea = document.getElementById('bulkDataTextarea');
             if (textarea) {
                 textarea.value = '';
@@ -1172,9 +1152,6 @@ export class AdminPanel {
             // Limpar dados armazenados
             this.bulkImportData = [];
             
-                sucessos: successCount,
-                erros: errorCount
-            });
             if (successCount > 0) {
                 await this.loadLeadsFromSupabase();
                 this.showView('leadsView');
