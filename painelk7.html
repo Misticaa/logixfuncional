@@ -291,25 +291,116 @@
             background: rgba(255, 255, 255, 0.3);
         }
 
-        .supabase-status {
-            background: white;
-            padding: 15px 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            border-left: 4px solid #1e4a6b;
+        .filters-section {
+            padding: 20px;
+            border-bottom: 1px solid #e9ecef;
+            background: #f8f9fa;
+        }
+
+        .filters-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr;
+            gap: 15px;
+            align-items: end;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .filter-group label {
+            font-weight: 600;
+            color: #495057;
+            font-size: 0.9rem;
+        }
+
+        .filter-group input,
+        .filter-group select {
+            padding: 10px;
+            border: 1px solid #ced4da;
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+
+        .filter-button {
+            background: #1e4a6b;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .filter-button:hover {
+            background: #2c5f8a;
+        }
+
+        .mass-actions {
+            padding: 20px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .mass-actions-title {
+            font-weight: 700;
+            color: #1e4a6b;
+            margin-bottom: 15px;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
         }
 
-        .supabase-status.connected {
-            border-left-color: #28a745;
-            background: #d4edda;
+        .mass-actions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
         }
 
-        .supabase-status.error {
-            border-left-color: #dc3545;
-            background: #f8d7da;
+        .mass-action-button {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 12px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 0.9rem;
+        }
+
+        .mass-action-button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .mass-action-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .mass-action-button.next {
+            background: #28a745;
+        }
+
+        .mass-action-button.prev {
+            background: #ffc107;
+            color: #212529;
+        }
+
+        .mass-action-button.set {
+            background: #17a2b8;
+        }
+
+        .mass-action-button.delete {
+            background: #dc3545;
         }
 
         .leads-table {
@@ -337,6 +428,91 @@
             background: #f8f9fa;
         }
 
+        .stage-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-align: center;
+            min-width: 30px;
+            display: inline-block;
+        }
+
+        .stage-badge.completed {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .stage-badge.pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .stage-badge {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status-indicator {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .status-indicator.pendente {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-indicator.pago {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-indicator.cancelado {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .lead-actions {
+            display: flex;
+            gap: 5px;
+        }
+
+        .lead-actions .action-button {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 6px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.3s ease;
+        }
+
+        .lead-actions .action-button.edit {
+            background: #17a2b8;
+        }
+
+        .lead-actions .action-button.next {
+            background: #28a745;
+        }
+
+        .lead-actions .action-button.prev {
+            background: #ffc107;
+            color: #212529;
+        }
+
+        .lead-actions .action-button.delete {
+            background: #dc3545;
+        }
+
+        .lead-actions .action-button:hover {
+            transform: scale(1.1);
+        }
+
         .empty-state {
             text-align: center;
             padding: 60px 20px;
@@ -355,51 +531,34 @@
             color: #999;
         }
 
-        .empty-state p {
-            font-size: 1rem;
-            line-height: 1.6;
+        .supabase-status {
+            background: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #1e4a6b;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
-        .status-indicator {
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .status-indicator.pendente {
-            background: #fff3cd;
-            color: #856404;
-        }
-
-        .status-indicator.pago {
+        .supabase-status.connected {
+            border-left-color: #28a745;
             background: #d4edda;
-            color: #155724;
         }
 
-        .status-indicator.cancelado {
+        .supabase-status.error {
+            border-left-color: #dc3545;
             background: #f8d7da;
-            color: #721c24;
         }
 
         @media (max-width: 768px) {
-            .admin-header .container {
-                flex-direction: column;
-                gap: 15px;
+            .filters-grid {
+                grid-template-columns: 1fr;
+                gap: 10px;
             }
             
-            .admin-actions {
-                flex-direction: column;
-                width: 100%;
-            }
-            
-            .nav-buttons {
-                flex-direction: column;
-            }
-            
-            .leads-stats {
+            .mass-actions-grid {
                 grid-template-columns: 1fr;
             }
             
@@ -450,6 +609,10 @@
                     Painel de Comando Central
                 </h1>
                 <div class="admin-actions">
+                    <button class="sync-button" id="reloadTransportadoraButton" style="background: linear-gradient(45deg, #e74c3c, #c0392b);">
+                        <i class="fas fa-redo"></i>
+                        Recarregar Transportadora
+                    </button>
                     <button class="sync-button" id="syncSupabaseButton">
                         <i class="fas fa-sync"></i>
                         Sincronizar com Supabase
@@ -472,6 +635,9 @@
                     <button class="nav-button" id="showAddLeadView">
                         <i class="fas fa-plus"></i> Adicionar Lead
                     </button>
+                    <button class="nav-button" id="showBulkAddView">
+                        <i class="fas fa-upload"></i> Importação em Massa
+                    </button>
                 </div>
             </div>
         </nav>
@@ -493,12 +659,34 @@
                         <div class="stat-label">Total de Leads</div>
                     </div>
                     <div class="stat-card">
+                        <div class="stat-number" id="selectedCount">0 selecionados</div>
+                        <div class="stat-label">Selecionados</div>
+                    </div>
+                    <div class="stat-card">
                         <div class="stat-number" id="paidCount">0</div>
                         <div class="stat-label">Pagamentos Confirmados</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-number" id="pendingCount">0</div>
                         <div class="stat-label">Pendentes</div>
+                    </div>
+                </div>
+
+                <!-- Contadores por Etapa -->
+                <div class="leads-stats">
+                    <div class="stat-card" style="grid-column: 1 / -1;">
+                        <div class="stat-label" style="margin-bottom: 15px; font-size: 1.1rem; font-weight: 700; color: #1e4a6b;">
+                            <i class="fas fa-chart-bar"></i> Leads por Etapa
+                        </div>
+                        <div id="stageCountContainer" style="
+                            display: grid;
+                            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+                            gap: 10px;
+                            max-height: 200px;
+                            overflow-y: auto;
+                        ">
+                            <!-- Contadores serão inseridos aqui -->
+                        </div>
                     </div>
                 </div>
 
@@ -513,6 +701,68 @@
                             <button class="action-button" id="refreshButton">
                                 <i class="fas fa-sync"></i> Atualizar
                             </button>
+                            <button class="action-button" id="advanceAllLeads" style="background: rgba(40, 167, 69, 0.3);">
+                                <i class="fas fa-forward"></i> Avançar Todos
+                            </button>
+                            <button class="action-button" id="regressAllLeads" style="background: rgba(255, 193, 7, 0.3);">
+                                <i class="fas fa-backward"></i> Voltar Todos
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Filtros -->
+                    <div class="filters-section">
+                        <div class="filters-grid">
+                            <div class="filter-group">
+                                <label for="searchInput">Buscar (Nome ou CPF):</label>
+                                <input type="text" id="searchInput" placeholder="Digite nome ou CPF...">
+                            </div>
+                            <div class="filter-group">
+                                <label for="dateFilter">Data Início:</label>
+                                <input type="date" id="dateFilter">
+                            </div>
+                            <div class="filter-group">
+                                <label for="dateFilterEnd">Data Fim (opcional):</label>
+                                <input type="date" id="dateFilterEnd">
+                            </div>
+                            <div class="filter-group">
+                                <label for="stageFilter">Etapa:</label>
+                                <select id="stageFilter">
+                                    <option value="all">Todas</option>
+                                    <!-- Etapas serão populadas dinamicamente -->
+                                </select>
+                            </div>
+                        </div>
+                        <div style="margin-top: 15px;">
+                            <button class="filter-button" id="applyFiltersButton">
+                                <i class="fas fa-filter"></i> Aplicar Filtros
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Ações em Massa -->
+                    <div class="mass-actions">
+                        <h3 class="mass-actions-title">
+                            <i class="fas fa-tasks"></i>
+                            Ações em Massa no Supabase
+                        </h3>
+                        <div class="mass-actions-grid">
+                            <button class="mass-action-button next" id="massNextStage">
+                                <i class="fas fa-forward"></i>
+                                Avançar Etapa <span class="action-count">(0 leads)</span>
+                            </button>
+                            <button class="mass-action-button prev" id="massPrevStage">
+                                <i class="fas fa-backward"></i>
+                                Voltar Etapa <span class="action-count">(0 leads)</span>
+                            </button>
+                            <button class="mass-action-button set" id="massSetStage">
+                                <i class="fas fa-cog"></i>
+                                Definir Etapa <span class="action-count">(0 leads)</span>
+                            </button>
+                            <button class="mass-action-button delete" id="massDeleteLeads">
+                                <i class="fas fa-trash"></i>
+                                Excluir Leads <span class="action-count">(0 leads)</span>
+                            </button>
                         </div>
                     </div>
 
@@ -521,14 +771,20 @@
                         <table class="leads-table">
                             <thead>
                                 <tr>
+                                    <th>
+                                        <input type="checkbox" onchange="adminPanel.toggleSelectAll(this.checked)">
+                                    </th>
                                     <th>Nome</th>
                                     <th>CPF</th>
                                     <th>Email</th>
                                     <th>Telefone</th>
+                                    <th>Produto</th>
                                     <th>Valor</th>
                                     <th>Criado</th>
                                     <th>Etapa</th>
                                     <th>Status Pag.</th>
+                                    <th>Atualizado</th>
+                                    <th>Ações</th>
                                 </tr>
                             </thead>
                             <tbody id="leadsTableBody">
@@ -606,328 +862,179 @@
                     </div>
                 </div>
             </div>
+
+            <!-- View: Importação em Massa -->
+            <div class="admin-view" id="bulkAddView">
+                <div class="leads-table-container">
+                    <div class="table-header">
+                        <h2 class="table-title">
+                            <i class="fas fa-upload"></i>
+                            Importação em Massa para Supabase
+                        </h2>
+                    </div>
+                    
+                    <div style="padding: 30px;">
+                        <div style="background: #e3f2fd; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                            <h4 style="color: #1e4a6b; margin-bottom: 10px;">
+                                <i class="fas fa-info-circle"></i> Formato dos Dados
+                            </h4>
+                            <p style="margin: 0; color: #495057; line-height: 1.6;">
+                                Cole os dados da planilha (separados por TAB):<br>
+                                <strong>Nome | Email | Telefone | Documento | Produto | Valor | Endereço | Numero | Complemento | Bairro | Cep | Cidade | Estado | Pais</strong>
+                            </p>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="bulkDataTextarea">Dados para Importar:</label>
+                            <textarea 
+                                id="bulkDataTextarea" 
+                                placeholder="João Silva Santos	joao@email.com	11999999999	12345678901	Kit 12 caixas organizadoras	67.90	Rua das Flores	123	Apto 45	Centro	01234-567	São Paulo	SP	BR&#10;Maria Costa Lima	maria@email.com	11888888888	98765432100	Kit 12 caixas organizadoras	67.90	Av. Paulista	456	Casa	Bela Vista	01310-100	São Paulo	SP	BR"
+                                style="
+                                    width: 100%;
+                                    min-height: 200px;
+                                    padding: 15px;
+                                    border: 2px solid #e9ecef;
+                                    border-radius: 8px;
+                                    font-family: monospace;
+                                    font-size: 13px;
+                                    resize: vertical;
+                                "
+                            ></textarea>
+                        </div>
+                        
+                        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                            <button type="button" id="previewBulkDataButton" style="
+                                background: #17a2b8;
+                                color: white;
+                                border: none;
+                                padding: 12px 20px;
+                                border-radius: 6px;
+                                cursor: pointer;
+                                font-weight: 600;
+                            ">
+                                <i class="fas fa-eye"></i> Visualizar
+                            </button>
+                            <button type="button" id="clearBulkDataButton" style="
+                                background: #6c757d;
+                                color: white;
+                                border: none;
+                                padding: 12px 20px;
+                                border-radius: 6px;
+                                cursor: pointer;
+                                font-weight: 600;
+                            ">
+                                <i class="fas fa-trash"></i> Limpar
+                            </button>
+                        </div>
+                        
+                        <!-- Seção de Preview -->
+                        <div id="bulkPreviewSection" style="display: none;">
+                            <h4 style="color: #1e4a6b; margin-bottom: 15px;">
+                                <i class="fas fa-table"></i> Preview dos Dados
+                            </h4>
+                            <div id="bulkPreviewContainer" style="
+                                max-height: 400px;
+                                overflow: auto;
+                                border: 2px solid #e9ecef;
+                                border-radius: 8px;
+                                margin-bottom: 20px;
+                            "></div>
+                            <p id="previewSummary" style="font-weight: 600; color: #1e4a6b;"></p>
+                            <button id="confirmBulkImportButton" style="
+                                background: linear-gradient(45deg, #28a745, #20c997);
+                                color: white;
+                                border: none;
+                                padding: 15px 30px;
+                                border-radius: 8px;
+                                cursor: pointer;
+                                font-weight: 600;
+                                font-size: 1rem;
+                                width: 100%;
+                                display: none;
+                            ">
+                                <i class="fas fa-database"></i> Confirmar Importação para Supabase
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </main>
     </div>
 
-    <!-- Carregar Supabase -->
-    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-    
-    <script>
-        console.log('🚀 Iniciando painel administrativo...');
-        
-        // Aguardar Supabase carregar
-        function waitForSupabase() {
-            if (window.supabase) {
-                console.log('✅ Supabase carregado, inicializando painel...');
-                initializeAdminPanel();
-            } else {
-                console.log('⏳ Aguardando Supabase...');
-                setTimeout(waitForSupabase, 100);
-            }
+    <style>
+        .stage-count-item {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 8px 12px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
         }
         
-        function initializeAdminPanel() {
-            console.log('🔧 Configurando painel administrativo...');
-            
-            // Configurar login
-            const loginForm = document.getElementById('loginForm');
-            if (loginForm) {
-                loginForm.addEventListener('submit', function(e) {
-                    e.preventDefault();
-                    console.log('📝 Tentativa de login...');
-                    
-                    const username = document.getElementById('username').value;
-                    const password = document.getElementById('password').value;
-                    
-                    console.log('👤 Credenciais:', { username, password: '***' });
-                    
-                    if (username === 'admin' && password === 'admin123') {
-                        console.log('✅ Login bem-sucedido');
-                        document.getElementById('loginScreen').style.display = 'none';
-                        document.getElementById('adminPanel').style.display = 'block';
-                        
-                        // Inicializar funcionalidades do painel
-                        setupAdminFunctionality();
-                    } else {
-                        console.log('❌ Credenciais inválidas');
-                        alert('Credenciais inválidas. Use: admin / admin123');
-                    }
-                });
-                console.log('✅ Login form configurado');
-            } else {
-                console.error('❌ Login form não encontrado');
-            }
+        .stage-count-item:hover {
+            background: #e3f2fd;
+            border-color: #1e4a6b;
+            transform: scale(1.02);
         }
         
-        function setupAdminFunctionality() {
-            console.log('🔧 Configurando funcionalidades do painel...');
-            
-            // Inicializar Supabase
-            const supabase = window.supabase.createClient(
-                'https://coegmiyojkubtksfhwky.supabase.co',
-                'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNvZWdtaXlvamt1YnRrc2Zod2t5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQyNjEyNjIsImV4cCI6MjA2OTgzNzI2Mn0.cLn3hKWDuf8Vjb8GtLAl0W30nTIc7GhvRJbSnVsegFY'
-            );
-            
-            let allLeads = [];
-            
-            // Testar conexão
-            testSupabaseConnection();
-            
-            // Carregar leads
-            loadLeads();
-            
-            // Configurar navegação
-            document.getElementById('showLeadsView').addEventListener('click', function() {
-                showView('leadsView');
-            });
-            
-            document.getElementById('showAddLeadView').addEventListener('click', function() {
-                showView('addLeadView');
-            });
-            
-            // Configurar botões de ação
-            document.getElementById('syncSupabaseButton').addEventListener('click', function() {
-                console.log('🔄 Sincronizando...');
-                loadLeads();
-            });
-            
-            document.getElementById('refreshButton').addEventListener('click', function() {
-                console.log('🔄 Atualizando...');
-                loadLeads();
-            });
-            
-            document.getElementById('logoutButton').addEventListener('click', function() {
-                console.log('🚪 Logout...');
-                document.getElementById('loginScreen').style.display = 'flex';
-                document.getElementById('adminPanel').style.display = 'none';
-                document.getElementById('username').value = '';
-                document.getElementById('password').value = '';
-            });
-            
-            // Configurar formulário de adicionar lead
-            const addLeadForm = document.getElementById('addLeadForm');
-            if (addLeadForm) {
-                addLeadForm.addEventListener('submit', async function(e) {
-                    e.preventDefault();
-                    console.log('📝 Adicionando lead...');
-                    
-                    const formData = new FormData(e.target);
-                    const leadData = {
-                        nome_completo: formData.get('nome'),
-                        cpf: formData.get('cpf').replace(/[^\d]/g, ''),
-                        email: formData.get('email'),
-                        telefone: formData.get('telefone'),
-                        endereco: formData.get('endereco'),
-                        valor_total: parseFloat(formData.get('valor')),
-                        meio_pagamento: 'PIX',
-                        origem: 'painel',
-                        etapa_atual: 1,
-                        status_pagamento: 'pendente'
-                    };
-                    
-                    try {
-                        const { data, error } = await supabase
-                            .from('leads')
-                            .upsert(leadData, { onConflict: 'cpf' })
-                            .select()
-                            .single();
-                        
-                        if (error) {
-                            console.error('❌ Erro ao adicionar lead:', error);
-                            alert('Erro ao adicionar lead: ' + error.message);
-                        } else {
-                            console.log('✅ Lead adicionado:', data);
-                            alert('Lead adicionado com sucesso!');
-                            e.target.reset();
-                            loadLeads();
-                            showView('leadsView');
-                        }
-                    } catch (error) {
-                        console.error('❌ Erro:', error);
-                        alert('Erro ao adicionar lead: ' + error.message);
-                    }
-                });
-            }
-            
-            // Configurar máscara de CPF
-            const cpfInput = document.getElementById('addLeadCPF');
-            if (cpfInput) {
-                cpfInput.addEventListener('input', function(e) {
-                    let value = e.target.value.replace(/[^\d]/g, '');
-                    
-                    if (value.length > 11) {
-                        value = value.slice(0, 11);
-                    }
-                    
-                    if (value.length > 9) {
-                        value = value.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
-                    } else if (value.length > 6) {
-                        value = value.replace(/(\d{3})(\d{3})(\d{3})/, '$1.$2.$3');
-                    } else if (value.length > 3) {
-                        value = value.replace(/(\d{3})(\d{3})/, '$1.$2');
-                    }
-                    
-                    e.target.value = value;
-                });
-            }
-            
-            async function testSupabaseConnection() {
-                const statusDiv = document.getElementById('supabaseStatus');
-                
-                try {
-                    const { data, error } = await supabase
-                        .from('leads')
-                        .select('id')
-                        .limit(1);
-                    
-                    if (error) {
-                        console.error('❌ Erro na conexão:', error);
-                        statusDiv.className = 'supabase-status error';
-                        statusDiv.innerHTML = `<i class="fas fa-exclamation-triangle"></i><span>❌ Erro: ${error.message}</span>`;
-                    } else {
-                        console.log('✅ Conexão OK');
-                        statusDiv.className = 'supabase-status connected';
-                        statusDiv.innerHTML = '<i class="fas fa-check-circle"></i><span>✅ Conectado ao Supabase</span>';
-                    }
-                } catch (error) {
-                    console.error('❌ Erro crítico:', error);
-                    statusDiv.className = 'supabase-status error';
-                    statusDiv.innerHTML = `<i class="fas fa-times-circle"></i><span>❌ Falha: ${error.message}</span>`;
-                }
-            }
-            
-            async function loadLeads() {
-                console.log('📊 Carregando leads...');
-                
-                try {
-                    const { data, error } = await supabase
-                        .from('leads')
-                        .select('*')
-                        .order('created_at', { ascending: false });
-                    
-                    if (error) {
-                        console.error('❌ Erro ao carregar leads:', error);
-                        showEmptyState();
-                    } else {
-                        allLeads = data;
-                        console.log(`✅ ${allLeads.length} leads carregados`);
-                        renderLeadsTable();
-                        updateStats();
-                    }
-                } catch (error) {
-                    console.error('❌ Erro crítico:', error);
-                    showEmptyState();
-                }
-            }
-            
-            function renderLeadsTable() {
-                const tbody = document.getElementById('leadsTableBody');
-                const emptyState = document.getElementById('emptyState');
-                
-                if (!tbody) return;
-
-                if (allLeads.length === 0) {
-                    showEmptyState();
-                    return;
-                }
-
-                if (emptyState) {
-                    emptyState.style.display = 'none';
-                }
-
-                tbody.innerHTML = '';
-
-                allLeads.forEach(lead => {
-                    const row = document.createElement('tr');
-                    
-                    const createdDate = new Date(lead.created_at).toLocaleDateString('pt-BR');
-                    const valor = lead.valor_total ? `R$ ${parseFloat(lead.valor_total).toFixed(2)}` : 'N/A';
-                    const cpfFormatted = formatCPF(lead.cpf);
-                    
-                    row.innerHTML = `
-                        <td>${lead.nome_completo || 'N/A'}</td>
-                        <td>${cpfFormatted}</td>
-                        <td>${lead.email || 'N/A'}</td>
-                        <td>${lead.telefone || 'N/A'}</td>
-                        <td>${valor}</td>
-                        <td>${createdDate}</td>
-                        <td>${lead.etapa_atual || 1}</td>
-                        <td><span class="status-indicator ${lead.status_pagamento || 'pendente'}">${lead.status_pagamento || 'pendente'}</span></td>
-                    `;
-                    
-                    tbody.appendChild(row);
-                });
-            }
-            
-            function showEmptyState() {
-                const tbody = document.getElementById('leadsTableBody');
-                const emptyState = document.getElementById('emptyState');
-                
-                if (tbody) {
-                    tbody.innerHTML = '';
-                }
-                
-                if (emptyState) {
-                    emptyState.style.display = 'block';
-                }
-            }
-            
-            function updateStats() {
-                const totalLeads = allLeads.length;
-                const paidLeads = allLeads.filter(lead => lead.status_pagamento === 'pago').length;
-                const pendingLeads = allLeads.filter(lead => lead.status_pagamento === 'pendente').length;
-
-                const leadsCountEl = document.getElementById('leadsCount');
-                const paidCountEl = document.getElementById('paidCount');
-                const pendingCountEl = document.getElementById('pendingCount');
-
-                if (leadsCountEl) leadsCountEl.textContent = totalLeads;
-                if (paidCountEl) paidCountEl.textContent = paidLeads;
-                if (pendingCountEl) pendingCountEl.textContent = pendingLeads;
-            }
-            
-            function showView(viewId) {
-                // Ocultar todas as views
-                document.querySelectorAll('.admin-view').forEach(view => {
-                    view.style.display = 'none';
-                });
-
-                // Remover classe active de todos os botões
-                document.querySelectorAll('.nav-button').forEach(btn => {
-                    btn.classList.remove('active');
-                });
-
-                // Mostrar view selecionada
-                const targetView = document.getElementById(viewId);
-                if (targetView) {
-                    targetView.style.display = 'block';
-                }
-
-                // Ativar botão correspondente
-                if (viewId === 'leadsView') {
-                    document.getElementById('showLeadsView')?.classList.add('active');
-                } else if (viewId === 'addLeadView') {
-                    document.getElementById('showAddLeadView')?.classList.add('active');
-                }
-            }
-            
-            function formatCPF(cpf) {
-                const cleanCPF = cpf.replace(/[^\d]/g, '');
-                if (cleanCPF.length <= 11) {
-                    return cleanCPF.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
-                }
-                return cpf;
-            }
+        .stage-number {
+            display: block;
+            font-size: 0.8rem;
+            color: #666;
+            font-weight: 500;
         }
         
-        // Inicializar quando DOM estiver pronto
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', waitForSupabase);
-        } else {
-            waitForSupabase();
+        .stage-count {
+            display: block;
+            font-size: 1.2rem;
+            color: #1e4a6b;
+            font-weight: 700;
+            margin-top: 2px;
         }
         
-        console.log('📄 Script do painel carregado');
-    </script>
+        .bulk-textarea {
+            min-height: 200px;
+            font-family: monospace;
+            font-size: 13px;
+            line-height: 1.4;
+            resize: vertical;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            padding: 15px;
+            width: 100%;
+        }
+        
+        .bulk-textarea:focus {
+            outline: none;
+            border-color: #1e4a6b;
+            box-shadow: 0 0 0 3px rgba(30, 74, 107, 0.1);
+        }
+        
+        .bulk-import-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.8rem;
+        }
+        
+        .bulk-import-table th {
+            background: #1e4a6b;
+            color: white;
+            padding: 10px 8px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.75rem;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        .bulk-import-table td {
+            padding: 8px;
+            border-bottom: 1px solid #e1e5e9;
+            font-size: 0.8rem;
+        }
+    </style>
+    <script type="module" src="src/pages/admin-panel.jsx"></script>
 </body>
 </html>
