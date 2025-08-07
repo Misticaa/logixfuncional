@@ -156,7 +156,7 @@ export class DatabaseService {
                     produtos: leadData.produtos || [],
                     valor_total: leadData.valor_total,
                     meio_pagamento: leadData.meio_pagamento || 'PIX',
-                    origem: leadData.origem || 'direto',
+                    origem: leadData.origem || 'vega',
                     etapa_atual: leadData.etapa_atual || 1,
                     status_pagamento: leadData.status_pagamento || 'pendente',
                     order_bumps: leadData.order_bumps || [],
