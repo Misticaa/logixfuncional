@@ -8,235 +8,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <style>
-        /* Order Confirmation Popup Styles */
-        .order-confirmation-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.7);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 3000;
-            backdrop-filter: blur(5px);
-            animation: fadeIn 0.3s ease;
-        }
-        
-        .order-confirmation-container {
-            background: white;
-            border-radius: 20px;
-            max-width: 350px;
-            width: 85%;
-            padding: 30px;
-            text-align: center;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            animation: slideUp 0.4s ease;
-            position: relative;
-        }
-        
-        .order-confirmation-icon {
-            font-size: 3.5rem;
-            color: #27ae60;
-            margin-bottom: 20px;
-            animation: bounceIn 0.6s ease;
-        }
-        
-        .order-confirmation-title {
-            font-size: 1.8rem;
-            font-weight: 700;
-            color: #2c3e50;
-            margin-bottom: 12px;
-            font-size: 1.6rem;
-        }
-        
-        .order-confirmation-message {
-            color: #666;
-            font-size: 1.1rem;
-            line-height: 1.6;
-            margin-bottom: 20px;
-            font-size: 1rem;
-        }
-        
-        .order-details {
-            background: #f8f9fa;
-            border-radius: 8px;
-            padding: 12px;
-            margin-bottom: 15px;
-            max-width: 200px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-        
-        .order-number {
-            font-weight: 700;
-            color: #1e4a6b;
-            font-size: 1rem;
-            margin-bottom: 2px;
-        }
-        
-        .order-number-label {
-            font-size: 0.8rem;
-            color: #666;
-            margin-bottom: 8px;
-        }
-        
-        .order-summary {
-            font-weight: 600;
-            color: #2c3e50;
-            font-size: 0.9rem;
-        }
-        
-        .track-order-popup-button {
-            background: linear-gradient(180deg, #1e4a6b, #2c5f8a, #1e4a6b) !important;
-            color: white !important;
-            border: none !important;
-            padding: 14px 30px !important;
-            font-size: 1rem !important;
-            font-weight: 700 !important;
-            border-radius: 8px !important;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(30, 74, 107, 0.5) !important;
-            animation: popupButtonPulse 1.5s ease-in-out infinite !important;
-            font-family: 'Orbitron', 'Roboto', sans-serif !important;
-            letter-spacing: 0.6px !important;
-            text-transform: uppercase !important;
-            display: inline-flex !important;
-            align-items: center !important;
-            gap: 10px !important;
-        }
-        
-        .track-order-popup-button:hover {
-            background: linear-gradient(180deg, #152e3f, #1e4a6b, #152e3f) !important;
-            transform: translateY(-2px) !important;
-            box-shadow: 0 6px 20px rgba(30, 74, 107, 0.7) !important;
-            animation-play-state: running !important;
-        }
-        
-        @keyframes popupButtonPulse {
-            0% {
-                transform: scale(1) !important;
-                box-shadow: 0 4px 15px rgba(30, 74, 107, 0.5) !important;
-            }
-            50% {
-                transform: scale(1.08) !important;
-                box-shadow: 0 8px 30px rgba(30, 74, 107, 0.9) !important;
-            }
-            100% {
-                transform: scale(1) !important;
-                box-shadow: 0 4px 15px rgba(30, 74, 107, 0.5) !important;
-            }
-        }
-            border: none;
-            padding: 15px 30px;
-            font-size: 1rem;
-            font-weight: 700;
-            border-radius: 50px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(30, 74, 107, 0.4);
-            animation: pulse 2s infinite;
-            font-family: 'Roboto', sans-serif;
-            letter-spacing: 0.5px;
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-        }
-        
-        .popup-close-button {
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            background: none;
-            border: none;
-            color: #6c757d;
-            font-size: 1.4rem;
-            cursor: pointer;
-            width: 32px;
-            height: 32px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0;
-            border-radius: 6px;
-            transition: all 0.2s ease;
-            z-index: 10;
-        }
-        
-        .popup-close-button:hover {
-            background: rgba(108, 117, 125, 0.1);
-            color: #495057;
-            transform: scale(1.1);
-        }
-        
-        .track-order-popup-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(30, 74, 107, 0.6);
-            animation-play-state: paused;
-        }
-        
-        @keyframes bounceIn {
-            0% {
-                opacity: 0;
-                transform: scale(0.3);
-            }
-            50% {
-                opacity: 1;
-                transform: scale(1.1);
-            }
-            70% {
-                transform: scale(0.9);
-            }
-            100% {
-                transform: scale(1);
-            }
-        }
-        
-        @media (max-width: 768px) {
-            .order-confirmation-container {
-                padding: 25px;
-                width: 80%;
-            }
-            
-            .order-confirmation-title {
-                font-size: 1.5rem;
-            }
-            
-            .order-confirmation-message {
-                font-size: 1rem;
-            }
-        }
-    </style>
 </head>
 <body>
-    <!-- Order Confirmation Popup -->
-    <div class="order-confirmation-overlay" id="orderConfirmationPopup">
-        <div class="order-confirmation-container">
-            <div class="order-confirmation-icon">
-                <i class="fas fa-check-circle"></i>
-            </div>
-            <button class="popup-close-button" id="closePopupButton">
-                <i class="fas fa-times"></i>
-            </button>
-            <h2 class="order-confirmation-title">Obrigado pela sua compra!</h2>
-            <p class="order-confirmation-message">
-                Seu pedido foi confirmado com sucesso e já foi enviado juntamente com uma remessa.<br>
-                <strong>Rastreie e verifique o andamento do pedido.</strong>
-            </p>
-            <div class="order-details">
-                <div class="order-number" id="orderNumberDisplay">CH12345678</div>
-                <div class="order-number-label">Número do Pedido</div>
-                <div class="order-summary" style="display: none;">Kit 12 Caixas Organizadoras</div>
-            </div>
-            <button class="track-order-popup-button" id="trackOrderPopupButton">
-                <i class="fas fa-truck"></i> Rastrear Pedido
-            </button>
-        </div>
-    </div>
-
     <!-- Header -->
     <header class="header">
         <div class="container">
@@ -407,65 +180,88 @@
         </div>
     </footer>
 
-    <script type="module" src="script.js"></script>
     <script>
-        // Generate random order number
-        function generateOrderNumber() {
-            const prefix = 'CH';
-            let digits = '';
-            for (let i = 0; i < 8; i++) {
-                digits += Math.floor(Math.random() * 10);
-            }
-            return prefix + digits;
-        }
-        
-        // Set random order number
-        document.addEventListener('DOMContentLoaded', function() {
-            const orderNumberDisplay = document.getElementById('orderNumberDisplay');
-            if (orderNumberDisplay) {
-                orderNumberDisplay.textContent = generateOrderNumber();
-            }
-            
-            // Setup track order button
-            const trackOrderButton = document.getElementById('trackOrderPopupButton');
-            if (trackOrderButton) {
-                trackOrderButton.addEventListener('click', function() {
-                    // Close popup
-                    const popup = document.getElementById('orderConfirmationPopup');
-                    if (popup) {
-                        popup.style.display = 'none';
-                    }
-                    
-                    // Focus on CPF input field
-                    const cpfInput = document.getElementById('cpfInput');
-                    if (cpfInput) {
-                        // Scroll to the tracking form
-                        const trackingForm = document.querySelector('.tracking-form');
-                        if (trackingForm) {
-                            trackingForm.scrollIntoView({ behavior: 'smooth' });
-                        }
-                        
-                        // Focus on the CPF input after scrolling
-                        setTimeout(() => {
-                            cpfInput.focus();
-                        }, 800);
-                    } else {
-                        // If on home page, redirect to tracking page
-                        window.location.href = '/rastreamento.html?focus=cpf';
-                    }
+        // Simple navigation system
+        document.addEventListener('DOMContentLoaded', () => {
+            // Track button functionality
+            const trackingButton = document.getElementById('trackingButton');
+            if (trackingButton) {
+                trackingButton.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    window.location.href = '/rastreamento.html?focus=cpf';
                 });
             }
-            
-            // Setup close button
-            const closePopupButton = document.getElementById('closePopupButton');
-            if (closePopupButton) {
-                closePopupButton.addEventListener('click', function() {
-                    const popup = document.getElementById('orderConfirmationPopup');
-                    if (popup) {
-                        popup.style.display = 'none';
+
+            // Hero image click
+            const heroImage = document.getElementById('heroImage');
+            if (heroImage) {
+                heroImage.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    window.location.href = '/rastreamento.html?focus=cpf';
+                });
+                heroImage.style.cursor = 'pointer';
+            }
+
+            // Logo clicks
+            document.querySelectorAll('.logo-image, [data-logo]').forEach(logo => {
+                logo.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    window.location.href = '/index.html';
+                });
+                logo.style.cursor = 'pointer';
+            });
+
+            // Footer links
+            document.querySelectorAll('.footer-link').forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    window.location.href = '/index.html';
+                });
+                link.style.cursor = 'pointer';
+            });
+
+            // Service icon hover effects
+            document.querySelectorAll('.service-icon').forEach(icon => {
+                icon.addEventListener('mouseenter', function() {
+                    this.style.transform = 'scale(1.1) rotate(5deg)';
+                    this.style.transition = 'transform 0.3s ease';
+                });
+                
+                icon.addEventListener('mouseleave', function() {
+                    this.style.transform = 'scale(1) rotate(0deg)';
+                });
+            });
+
+            // Scroll animations
+            const observerOptions = {
+                threshold: 0.1,
+                rootMargin: '0px 0px -50px 0px'
+            };
+
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach((entry) => {
+                    if (entry.isIntersecting) {
+                        entry.target.style.opacity = '1';
+                        entry.target.style.transform = 'translateY(0)';
                     }
                 });
-            }
+            }, observerOptions);
+
+            document.querySelectorAll('.service-item, .driver-service').forEach((item) => {
+                item.style.opacity = '0';
+                item.style.transform = 'translateY(30px)';
+                item.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+                observer.observe(item);
+            });
+
+            // Header scroll effect
+            window.addEventListener('scroll', () => {
+                const header = document.querySelector('.header');
+                if (header) {
+                    header.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+                    header.style.backdropFilter = 'blur(10px)';
+                }
+            });
         });
     </script>
 </body>

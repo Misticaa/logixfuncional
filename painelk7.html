@@ -291,116 +291,25 @@
             background: rgba(255, 255, 255, 0.3);
         }
 
-        .filters-section {
-            padding: 20px;
-            border-bottom: 1px solid #e9ecef;
-            background: #f8f9fa;
-        }
-
-        .filters-grid {
-            display: grid;
-            grid-template-columns: 2fr 1fr 1fr 1fr;
-            gap: 15px;
-            align-items: end;
-        }
-
-        .filter-group {
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-        }
-
-        .filter-group label {
-            font-weight: 600;
-            color: #495057;
-            font-size: 0.9rem;
-        }
-
-        .filter-group input,
-        .filter-group select {
-            padding: 10px;
-            border: 1px solid #ced4da;
-            border-radius: 6px;
-            font-size: 0.9rem;
-        }
-
-        .filter-button {
-            background: #1e4a6b;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.3s ease;
-        }
-
-        .filter-button:hover {
-            background: #2c5f8a;
-        }
-
-        .mass-actions {
-            padding: 20px;
-            background: #f8f9fa;
-            border-bottom: 1px solid #e9ecef;
-        }
-
-        .mass-actions-title {
-            font-weight: 700;
-            color: #1e4a6b;
-            margin-bottom: 15px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .mass-actions-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-        }
-
-        .mass-action-button {
-            background: #6c757d;
-            color: white;
-            border: none;
-            padding: 12px 15px;
+        .supabase-status {
+            background: white;
+            padding: 15px 20px;
             border-radius: 8px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.3s ease;
+            margin-bottom: 20px;
+            border-left: 4px solid #1e4a6b;
             display: flex;
             align-items: center;
-            justify-content: center;
-            gap: 8px;
-            font-size: 0.9rem;
+            gap: 10px;
         }
 
-        .mass-action-button:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        .supabase-status.connected {
+            border-left-color: #28a745;
+            background: #d4edda;
         }
 
-        .mass-action-button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .mass-action-button.next {
-            background: #28a745;
-        }
-
-        .mass-action-button.prev {
-            background: #ffc107;
-            color: #212529;
-        }
-
-        .mass-action-button.set {
-            background: #17a2b8;
-        }
-
-        .mass-action-button.delete {
-            background: #dc3545;
+        .supabase-status.error {
+            border-left-color: #dc3545;
+            background: #f8d7da;
         }
 
         .leads-table {
@@ -428,91 +337,6 @@
             background: #f8f9fa;
         }
 
-        .stage-badge {
-            padding: 4px 8px;
-            border-radius: 12px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            text-align: center;
-            min-width: 30px;
-            display: inline-block;
-        }
-
-        .stage-badge.completed {
-            background: #d4edda;
-            color: #155724;
-        }
-
-        .stage-badge.pending {
-            background: #fff3cd;
-            color: #856404;
-        }
-
-        .stage-badge {
-            background: #f8d7da;
-            color: #721c24;
-        }
-
-        .status-indicator {
-            padding: 4px 8px;
-            border-radius: 12px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            text-transform: uppercase;
-        }
-
-        .status-indicator.pendente {
-            background: #fff3cd;
-            color: #856404;
-        }
-
-        .status-indicator.pago {
-            background: #d4edda;
-            color: #155724;
-        }
-
-        .status-indicator.cancelado {
-            background: #f8d7da;
-            color: #721c24;
-        }
-
-        .lead-actions {
-            display: flex;
-            gap: 5px;
-        }
-
-        .lead-actions .action-button {
-            background: #6c757d;
-            color: white;
-            border: none;
-            padding: 6px 8px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.8rem;
-            transition: all 0.3s ease;
-        }
-
-        .lead-actions .action-button.edit {
-            background: #17a2b8;
-        }
-
-        .lead-actions .action-button.next {
-            background: #28a745;
-        }
-
-        .lead-actions .action-button.prev {
-            background: #ffc107;
-            color: #212529;
-        }
-
-        .lead-actions .action-button.delete {
-            background: #dc3545;
-        }
-
-        .lead-actions .action-button:hover {
-            transform: scale(1.1);
-        }
-
         .empty-state {
             text-align: center;
             padding: 60px 20px;
@@ -531,34 +355,51 @@
             color: #999;
         }
 
-        .supabase-status {
-            background: white;
-            padding: 15px 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            border-left: 4px solid #1e4a6b;
-            display: flex;
-            align-items: center;
-            gap: 10px;
+        .empty-state p {
+            font-size: 1rem;
+            line-height: 1.6;
         }
 
-        .supabase-status.connected {
-            border-left-color: #28a745;
+        .status-indicator {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-indicator.pendente {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status-indicator.pago {
             background: #d4edda;
+            color: #155724;
         }
 
-        .supabase-status.error {
-            border-left-color: #dc3545;
+        .status-indicator.cancelado {
             background: #f8d7da;
+            color: #721c24;
         }
 
         @media (max-width: 768px) {
-            .filters-grid {
-                grid-template-columns: 1fr;
-                gap: 10px;
+            .admin-header .container {
+                flex-direction: column;
+                gap: 15px;
             }
             
-            .mass-actions-grid {
+            .admin-actions {
+                flex-direction: column;
+                width: 100%;
+            }
+            
+            .nav-buttons {
+                flex-direction: column;
+            }
+            
+            .leads-stats {
                 grid-template-columns: 1fr;
             }
             
@@ -635,9 +476,6 @@
                     <button class="nav-button" id="showAddLeadView">
                         <i class="fas fa-plus"></i> Adicionar Lead
                     </button>
-                    <button class="nav-button" id="showBulkAddView">
-                        <i class="fas fa-upload"></i> Importação em Massa
-                    </button>
                 </div>
             </div>
         </nav>
@@ -659,34 +497,12 @@
                         <div class="stat-label">Total de Leads</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-number" id="selectedCount">0 selecionados</div>
-                        <div class="stat-label">Selecionados</div>
-                    </div>
-                    <div class="stat-card">
                         <div class="stat-number" id="paidCount">0</div>
                         <div class="stat-label">Pagamentos Confirmados</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-number" id="pendingCount">0</div>
                         <div class="stat-label">Pendentes</div>
-                    </div>
-                </div>
-
-                <!-- Contadores por Etapa -->
-                <div class="leads-stats">
-                    <div class="stat-card" style="grid-column: 1 / -1;">
-                        <div class="stat-label" style="margin-bottom: 15px; font-size: 1.1rem; font-weight: 700; color: #1e4a6b;">
-                            <i class="fas fa-chart-bar"></i> Leads por Etapa
-                        </div>
-                        <div id="stageCountContainer" style="
-                            display: grid;
-                            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-                            gap: 10px;
-                            max-height: 200px;
-                            overflow-y: auto;
-                        ">
-                            <!-- Contadores serão inseridos aqui -->
-                        </div>
                     </div>
                 </div>
 
@@ -701,68 +517,6 @@
                             <button class="action-button" id="refreshButton">
                                 <i class="fas fa-sync"></i> Atualizar
                             </button>
-                            <button class="action-button" id="advanceAllLeads" style="background: rgba(40, 167, 69, 0.3);">
-                                <i class="fas fa-forward"></i> Avançar Todos
-                            </button>
-                            <button class="action-button" id="regressAllLeads" style="background: rgba(255, 193, 7, 0.3);">
-                                <i class="fas fa-backward"></i> Voltar Todos
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Filtros -->
-                    <div class="filters-section">
-                        <div class="filters-grid">
-                            <div class="filter-group">
-                                <label for="searchInput">Buscar (Nome ou CPF):</label>
-                                <input type="text" id="searchInput" placeholder="Digite nome ou CPF...">
-                            </div>
-                            <div class="filter-group">
-                                <label for="dateFilter">Data Início:</label>
-                                <input type="date" id="dateFilter">
-                            </div>
-                            <div class="filter-group">
-                                <label for="dateFilterEnd">Data Fim (opcional):</label>
-                                <input type="date" id="dateFilterEnd">
-                            </div>
-                            <div class="filter-group">
-                                <label for="stageFilter">Etapa:</label>
-                                <select id="stageFilter">
-                                    <option value="all">Todas</option>
-                                    <!-- Etapas serão populadas dinamicamente -->
-                                </select>
-                            </div>
-                        </div>
-                        <div style="margin-top: 15px;">
-                            <button class="filter-button" id="applyFiltersButton">
-                                <i class="fas fa-filter"></i> Aplicar Filtros
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Ações em Massa -->
-                    <div class="mass-actions">
-                        <h3 class="mass-actions-title">
-                            <i class="fas fa-tasks"></i>
-                            Ações em Massa no Supabase
-                        </h3>
-                        <div class="mass-actions-grid">
-                            <button class="mass-action-button next" id="massNextStage">
-                                <i class="fas fa-forward"></i>
-                                Avançar Etapa <span class="action-count">(0 leads)</span>
-                            </button>
-                            <button class="mass-action-button prev" id="massPrevStage">
-                                <i class="fas fa-backward"></i>
-                                Voltar Etapa <span class="action-count">(0 leads)</span>
-                            </button>
-                            <button class="mass-action-button set" id="massSetStage">
-                                <i class="fas fa-cog"></i>
-                                Definir Etapa <span class="action-count">(0 leads)</span>
-                            </button>
-                            <button class="mass-action-button delete" id="massDeleteLeads">
-                                <i class="fas fa-trash"></i>
-                                Excluir Leads <span class="action-count">(0 leads)</span>
-                            </button>
                         </div>
                     </div>
 
@@ -771,20 +525,14 @@
                         <table class="leads-table">
                             <thead>
                                 <tr>
-                                    <th>
-                                        <input type="checkbox" onchange="adminPanel.toggleSelectAll(this.checked)">
-                                    </th>
                                     <th>Nome</th>
                                     <th>CPF</th>
                                     <th>Email</th>
                                     <th>Telefone</th>
-                                    <th>Produto</th>
                                     <th>Valor</th>
                                     <th>Criado</th>
                                     <th>Etapa</th>
                                     <th>Status Pag.</th>
-                                    <th>Atualizado</th>
-                                    <th>Ações</th>
                                 </tr>
                             </thead>
                             <tbody id="leadsTableBody">
@@ -862,179 +610,278 @@
                     </div>
                 </div>
             </div>
-
-            <!-- View: Importação em Massa -->
-            <div class="admin-view" id="bulkAddView">
-                <div class="leads-table-container">
-                    <div class="table-header">
-                        <h2 class="table-title">
-                            <i class="fas fa-upload"></i>
-                            Importação em Massa para Supabase
-                        </h2>
-                    </div>
-                    
-                    <div style="padding: 30px;">
-                        <div style="background: #e3f2fd; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-                            <h4 style="color: #1e4a6b; margin-bottom: 10px;">
-                                <i class="fas fa-info-circle"></i> Formato dos Dados
-                            </h4>
-                            <p style="margin: 0; color: #495057; line-height: 1.6;">
-                                Cole os dados da planilha (separados por TAB):<br>
-                                <strong>Nome | Email | Telefone | Documento | Produto | Valor | Endereço | Numero | Complemento | Bairro | Cep | Cidade | Estado | Pais</strong>
-                            </p>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="bulkDataTextarea">Dados para Importar:</label>
-                            <textarea 
-                                id="bulkDataTextarea" 
-                                placeholder="João Silva Santos	joao@email.com	11999999999	12345678901	Kit 12 caixas organizadoras	67.90	Rua das Flores	123	Apto 45	Centro	01234-567	São Paulo	SP	BR&#10;Maria Costa Lima	maria@email.com	11888888888	98765432100	Kit 12 caixas organizadoras	67.90	Av. Paulista	456	Casa	Bela Vista	01310-100	São Paulo	SP	BR"
-                                style="
-                                    width: 100%;
-                                    min-height: 200px;
-                                    padding: 15px;
-                                    border: 2px solid #e9ecef;
-                                    border-radius: 8px;
-                                    font-family: monospace;
-                                    font-size: 13px;
-                                    resize: vertical;
-                                "
-                            ></textarea>
-                        </div>
-                        
-                        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-                            <button type="button" id="previewBulkDataButton" style="
-                                background: #17a2b8;
-                                color: white;
-                                border: none;
-                                padding: 12px 20px;
-                                border-radius: 6px;
-                                cursor: pointer;
-                                font-weight: 600;
-                            ">
-                                <i class="fas fa-eye"></i> Visualizar
-                            </button>
-                            <button type="button" id="clearBulkDataButton" style="
-                                background: #6c757d;
-                                color: white;
-                                border: none;
-                                padding: 12px 20px;
-                                border-radius: 6px;
-                                cursor: pointer;
-                                font-weight: 600;
-                            ">
-                                <i class="fas fa-trash"></i> Limpar
-                            </button>
-                        </div>
-                        
-                        <!-- Seção de Preview -->
-                        <div id="bulkPreviewSection" style="display: none;">
-                            <h4 style="color: #1e4a6b; margin-bottom: 15px;">
-                                <i class="fas fa-table"></i> Preview dos Dados
-                            </h4>
-                            <div id="bulkPreviewContainer" style="
-                                max-height: 400px;
-                                overflow: auto;
-                                border: 2px solid #e9ecef;
-                                border-radius: 8px;
-                                margin-bottom: 20px;
-                            "></div>
-                            <p id="previewSummary" style="font-weight: 600; color: #1e4a6b;"></p>
-                            <button id="confirmBulkImportButton" style="
-                                background: linear-gradient(45deg, #28a745, #20c997);
-                                color: white;
-                                border: none;
-                                padding: 15px 30px;
-                                border-radius: 8px;
-                                cursor: pointer;
-                                font-weight: 600;
-                                font-size: 1rem;
-                                width: 100%;
-                                display: none;
-                            ">
-                                <i class="fas fa-database"></i> Confirmar Importação para Supabase
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
         </main>
     </div>
 
-    <style>
-        .stage-count-item {
-            background: #f8f9fa;
-            border: 1px solid #e9ecef;
-            border-radius: 8px;
-            padding: 8px 12px;
-            text-align: center;
-            transition: all 0.3s ease;
-            cursor: pointer;
+    <script type="module">
+        import { DatabaseService, CPFValidator } from './src/services/database.js';
+
+        class SimpleAdminPanel {
+            constructor() {
+                this.dbService = new DatabaseService();
+                this.allLeads = [];
+                this.init();
+            }
+
+            async init() {
+                console.log('🚀 Inicializando painel administrativo simples');
+                
+                this.setupEventListeners();
+                await this.testSupabaseConnection();
+                await this.loadLeadsFromSupabase();
+                this.updateStats();
+            }
+
+            setupEventListeners() {
+                // Login
+                const loginForm = document.getElementById('loginForm');
+                if (loginForm) {
+                    loginForm.addEventListener('submit', (e) => this.handleLogin(e));
+                }
+
+                // Logout
+                const logoutButton = document.getElementById('logoutButton');
+                if (logoutButton) {
+                    logoutButton.addEventListener('click', () => this.handleLogout());
+                }
+
+                // Navegação
+                const showLeadsView = document.getElementById('showLeadsView');
+                const showAddLeadView = document.getElementById('showAddLeadView');
+
+                if (showLeadsView) {
+                    showLeadsView.addEventListener('click', () => this.showView('leadsView'));
+                }
+
+                if (showAddLeadView) {
+                    showAddLeadView.addEventListener('click', () => this.showView('addLeadView'));
+                }
+
+                // Refresh
+                const refreshButton = document.getElementById('refreshButton');
+                if (refreshButton) {
+                    refreshButton.addEventListener('click', () => this.loadLeadsFromSupabase());
+                }
+
+                // Sync
+                const syncButton = document.getElementById('syncSupabaseButton');
+                if (syncButton) {
+                    syncButton.addEventListener('click', () => this.syncWithSupabase());
+                }
+
+                // Add lead form
+                const addLeadForm = document.getElementById('addLeadForm');
+                if (addLeadForm) {
+                    addLeadForm.addEventListener('submit', (e) => this.handleAddLead(e));
+                }
+
+                // CPF mask for add lead form
+                const addLeadCPF = document.getElementById('addLeadCPF');
+                if (addLeadCPF) {
+                    addLeadCPF.addEventListener('input', (e) => {
+                        CPFValidator.applyCPFMask(e.target);
+                    });
+                }
+            }
+
+            handleLogin(e) {
+                e.preventDefault();
+                
+                const username = document.getElementById('username').value;
+                const password = document.getElementById('password').value;
+
+                // Credenciais simples
+                if (username === 'admin' && password === 'admin123') {
+                    document.getElementById('loginScreen').style.display = 'none';
+                    document.getElementById('adminPanel').style.display = 'block';
+                    console.log('✅ Login realizado com sucesso');
+                } else {
+                    alert('Credenciais inválidas. Use: admin / admin123');
+                }
+            }
+
+            handleLogout() {
+                document.getElementById('loginScreen').style.display = 'flex';
+                document.getElementById('adminPanel').style.display = 'none';
+                document.getElementById('username').value = '';
+                document.getElementById('password').value = '';
+            }
+
+            showView(viewId) {
+                // Ocultar todas as views
+                document.querySelectorAll('.admin-view').forEach(view => {
+                    view.style.display = 'none';
+                });
+
+                // Remover classe active de todos os botões
+                document.querySelectorAll('.nav-button').forEach(btn => {
+                    btn.classList.remove('active');
+                });
+
+                // Mostrar view selecionada
+                const targetView = document.getElementById(viewId);
+                if (targetView) {
+                    targetView.style.display = 'block';
+                }
+
+                // Ativar botão correspondente
+                if (viewId === 'leadsView') {
+                    document.getElementById('showLeadsView')?.classList.add('active');
+                } else if (viewId === 'addLeadView') {
+                    document.getElementById('showAddLeadView')?.classList.add('active');
+                }
+            }
+
+            async testSupabaseConnection() {
+                const statusDiv = document.getElementById('supabaseStatus');
+                if (!statusDiv) return;
+
+                try {
+                    const result = await this.dbService.testConnection();
+                    
+                    if (result.success) {
+                        statusDiv.className = 'supabase-status connected';
+                        statusDiv.innerHTML = '<i class="fas fa-check-circle"></i><span>✅ Conectado ao Supabase</span>';
+                    } else {
+                        statusDiv.className = 'supabase-status error';
+                        statusDiv.innerHTML = `<i class="fas fa-exclamation-triangle"></i><span>❌ Erro: ${result.error}</span>`;
+                    }
+                } catch (error) {
+                    statusDiv.className = 'supabase-status error';
+                    statusDiv.innerHTML = `<i class="fas fa-times-circle"></i><span>❌ Falha na conexão: ${error.message}</span>`;
+                }
+            }
+
+            async loadLeadsFromSupabase() {
+                console.log('📊 Carregando leads do Supabase...');
+                
+                try {
+                    const result = await this.dbService.getAllLeads();
+                    
+                    if (result.success) {
+                        this.allLeads = result.data;
+                        console.log(`✅ ${this.allLeads.length} leads carregados`);
+                        this.renderLeadsTable();
+                        this.updateStats();
+                    } else {
+                        console.error('❌ Erro ao carregar leads:', result.error);
+                        this.showEmptyState();
+                    }
+                } catch (error) {
+                    console.error('❌ Erro ao carregar leads do Supabase:', error);
+                    this.showEmptyState();
+                }
+            }
+
+            renderLeadsTable() {
+                const tbody = document.getElementById('leadsTableBody');
+                const emptyState = document.getElementById('emptyState');
+                
+                if (!tbody) return;
+
+                if (this.allLeads.length === 0) {
+                    this.showEmptyState();
+                    return;
+                }
+
+                if (emptyState) {
+                    emptyState.style.display = 'none';
+                }
+
+                tbody.innerHTML = '';
+
+                this.allLeads.forEach(lead => {
+                    const row = document.createElement('tr');
+                    
+                    const createdDate = new Date(lead.created_at).toLocaleDateString('pt-BR');
+                    const valor = lead.valor_total ? `R$ ${parseFloat(lead.valor_total).toFixed(2)}` : 'N/A';
+                    
+                    row.innerHTML = `
+                        <td>${lead.nome_completo || 'N/A'}</td>
+                        <td>${CPFValidator.formatCPF(lead.cpf)}</td>
+                        <td>${lead.email || 'N/A'}</td>
+                        <td>${lead.telefone || 'N/A'}</td>
+                        <td>${valor}</td>
+                        <td>${createdDate}</td>
+                        <td>${lead.etapa_atual || 1}</td>
+                        <td><span class="status-indicator ${lead.status_pagamento || 'pendente'}">${lead.status_pagamento || 'pendente'}</span></td>
+                    `;
+                    
+                    tbody.appendChild(row);
+                });
+            }
+
+            showEmptyState() {
+                const tbody = document.getElementById('leadsTableBody');
+                const emptyState = document.getElementById('emptyState');
+                
+                if (tbody) {
+                    tbody.innerHTML = '';
+                }
+                
+                if (emptyState) {
+                    emptyState.style.display = 'block';
+                }
+            }
+
+            updateStats() {
+                const totalLeads = this.allLeads.length;
+                const paidLeads = this.allLeads.filter(lead => lead.status_pagamento === 'pago').length;
+                const pendingLeads = this.allLeads.filter(lead => lead.status_pagamento === 'pendente').length;
+
+                const leadsCountEl = document.getElementById('leadsCount');
+                const paidCountEl = document.getElementById('paidCount');
+                const pendingCountEl = document.getElementById('pendingCount');
+
+                if (leadsCountEl) leadsCountEl.textContent = totalLeads;
+                if (paidCountEl) paidCountEl.textContent = paidLeads;
+                if (pendingCountEl) pendingCountEl.textContent = pendingLeads;
+            }
+
+            async syncWithSupabase() {
+                console.log('🔄 Sincronizando com Supabase...');
+                await this.loadLeadsFromSupabase();
+            }
+
+            async handleAddLead(e) {
+                e.preventDefault();
+                
+                const formData = new FormData(e.target);
+                const leadData = {
+                    nome_completo: formData.get('nome'),
+                    cpf: formData.get('cpf').replace(/[^\d]/g, ''),
+                    email: formData.get('email'),
+                    telefone: formData.get('telefone'),
+                    endereco: formData.get('endereco'),
+                    valor_total: parseFloat(formData.get('valor')),
+                    meio_pagamento: 'PIX',
+                    origem: 'painel',
+                    etapa_atual: 1,
+                    status_pagamento: 'pendente'
+                };
+
+                try {
+                    const result = await this.dbService.createLead(leadData);
+                    
+                    if (result.success) {
+                        alert('Lead adicionado com sucesso!');
+                        e.target.reset();
+                        await this.loadLeadsFromSupabase();
+                        this.showView('leadsView');
+                    } else {
+                        alert('Erro ao adicionar lead: ' + result.error);
+                    }
+                } catch (error) {
+                    console.error('❌ Erro ao adicionar lead:', error);
+                    alert('Erro ao adicionar lead: ' + error.message);
+                }
+            }
         }
-        
-        .stage-count-item:hover {
-            background: #e3f2fd;
-            border-color: #1e4a6b;
-            transform: scale(1.02);
-        }
-        
-        .stage-number {
-            display: block;
-            font-size: 0.8rem;
-            color: #666;
-            font-weight: 500;
-        }
-        
-        .stage-count {
-            display: block;
-            font-size: 1.2rem;
-            color: #1e4a6b;
-            font-weight: 700;
-            margin-top: 2px;
-        }
-        
-        .bulk-textarea {
-            min-height: 200px;
-            font-family: monospace;
-            font-size: 13px;
-            line-height: 1.4;
-            resize: vertical;
-            border: 2px solid #e1e5e9;
-            border-radius: 8px;
-            padding: 15px;
-            width: 100%;
-        }
-        
-        .bulk-textarea:focus {
-            outline: none;
-            border-color: #1e4a6b;
-            box-shadow: 0 0 0 3px rgba(30, 74, 107, 0.1);
-        }
-        
-        .bulk-import-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.8rem;
-        }
-        
-        .bulk-import-table th {
-            background: #1e4a6b;
-            color: white;
-            padding: 10px 8px;
-            text-align: left;
-            font-weight: 600;
-            font-size: 0.75rem;
-            position: sticky;
-            top: 0;
-            z-index: 10;
-        }
-        
-        .bulk-import-table td {
-            padding: 8px;
-            border-bottom: 1px solid #e1e5e9;
-            font-size: 0.8rem;
-        }
-    </style>
-    <script type="module" src="src/pages/admin-panel.jsx"></script>
+
+        // Inicializar painel
+        document.addEventListener('DOMContentLoaded', () => {
+            window.adminPanel = new SimpleAdminPanel();
+        });
+    </script>
 </body>
 </html>
