@@ -9,7 +9,6 @@ export class AdminPanel {
         this.dbService = new DatabaseService();
         this.leads = [];
         this.filteredLeads = [];
-        this.bulkImportData = []; // Armazenar dados da importação em massa
         this.selectedLeads = new Set();
         this.currentPage = 1;
         this.leadsPerPage = 20;
@@ -1012,11 +1011,7 @@ export class AdminPanel {
             }
         });
         
-        // Armazenar dados parseados para confirmação posterior
-        this.bulkImportData = processedData;
-        
-        // Usar dados armazenados da prévia
-        if (!this.bulkImportData || this.bulkImportData.length === 0) {
+        if (processedData.length === 0) {
             this.showNotification('Nenhum dado válido encontrado', 'error');
             return;
         }
@@ -1142,6 +1137,7 @@ export class AdminPanel {
                     produtos: [{ nome: line.produto, preco: line.valor }],
                     valor_total: line.valor,
                     meio_pagamento: 'PIX',
+                    origem: 'painel',
                     etapa_atual: 1,
                     status_pagamento: 'pendente'
                 };
@@ -1161,21 +1157,7 @@ export class AdminPanel {
                 }
             }
             
-            const message = `Importação concluída!\n✅ Sucessos: ${successCount}\n❌ Erros: ${errorCount}`;
-            alert(message);
-            
-            console.log('📊 Resultado da importação:', {
-                sucessos: successCount,
-                erros: errorCount
-            });
-            
-            const textarea = document.getElementById('bulkDataTextarea');
-            if (textarea) {
-                textarea.value = '';
-            }
-            
-            // Limpar dados armazenados
-            this.bulkImportData = [];
+            alert(`Importação concluída!\n✅ Sucessos: ${successCount}\n❌ Erros: ${errorCount}`);
             
             if (successCount > 0) {
                 await this.loadLeadsFromSupabase();
